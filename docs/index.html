@@ -86,6 +86,21 @@ main{padding:0 max(5vw,16px) 120px}
 .ix-x{display:grid;grid-template-rows:0fr;transition:grid-template-rows .55s cubic-bezier(.22,1,.36,1)}
 .ix-x.open{grid-template-rows:1fr}
 .ix-xi{overflow:hidden;min-height:0}
+#short .tot{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0 22px}
+#short .tot div{background:var(--bg);padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+#short .tot span,#short .pbar h4{font-family:var(--mono);font-size:11.5px;color:var(--ink2);font-weight:400;margin:0;letter-spacing:.02em}
+#short .tot b{font-weight:400;font-size:20px;font-variant-numeric:tabular-nums}
+#short .pbar{margin:0 0 26px}
+#short .pbar h4{margin-bottom:10px}
+#short .pr{display:grid;grid-template-columns:7.5em 1fr auto;gap:12px;align-items:center;padding:4px 0;font-size:14px}
+#short .pr i{height:1px;background:var(--line);position:relative}
+#short .pr i::after{content:"";position:absolute;left:0;top:-1px;height:3px;width:var(--w);background:var(--ink);transition:width .4s cubic-bezier(.2,.8,.2,1)}
+#short .pv{font-family:var(--mono);font-size:12px;color:var(--ink2);white-space:nowrap}
+.intro{font-size:17px;line-height:1.65;max-width:62ch}
+.pend{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+details.orig summary{font-family:var(--mono);font-size:12px;color:var(--ink2);cursor:pointer;list-style:none}
+details.orig summary::before{content:"+ "}details.orig[open] summary::before{content:"− "}
+details.orig p{color:var(--ink2);font-size:14.5px}
 .ix-xc{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:36px;padding:24px 0 34px;border-bottom:1px solid var(--line)}
 .ix-xc p{margin:0 0 12px;font-size:15.5px;max-width:62ch}
 dl.dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0;font-size:14.5px}
@@ -110,9 +125,10 @@ dl.dl dd{margin:0}
 </head>
 <body>
 <header class="top">
-  <div class="seg-tabs" id="regionTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="all"></button><button type="button" data-v="europe" aria-pressed="false" data-t="europe"></button><button type="button" data-v="other" aria-pressed="false" data-t="other"></button></div>
+  <div class="seg-tabs" id="regionTabs" role="group"></div>
   <div class="seg-tabs" id="listTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="lAll"></button><button type="button" data-v="top" aria-pressed="false" data-t="lTop"></button><button type="button" data-v="pick" aria-pressed="false" data-t="lPick"></button></div>
   <span class="upd" id="upd"></span>
+  <div class="seg-tabs" id="curTabs" role="group" aria-label="Currency"><button type="button" data-c="local" aria-pressed="false" data-t="curLocal"></button><button type="button" data-c="CNY" aria-pressed="true">¥</button><button type="button" data-c="EUR" aria-pressed="false">€</button><button type="button" data-c="USD" aria-pressed="false">$</button></div>
   <div class="seg-tabs" id="langTabs" role="group" aria-label="Language"><button type="button" data-l="zh" aria-pressed="true">中</button><button type="button" data-l="en" aria-pressed="false">EN</button></div>
 </header>
 <main>
@@ -141,13 +157,13 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 let LANG=store.get('bm-lang','zh');
 const UI={
- zh:{lAll:'全部烘焙商',lTop:'Top 30',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',other:'其他地区',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
+ zh:{lAll:'全部烘焙商',lTop:'Top 50',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',asia:'亚洲','north-america':'北美',oceania:'大洋洲','middle-east':'中东',curLocal:'原价',fxLocal:'显示各店标价（原币种）',orig:'原文',trPending:'中文简介生成中，先显示原文。',totals:'合计',grams:'总克数',byProcess:'处理法',byRoaster:'烘焙商',bags:n=>n+' 包',mixed:'多种币种',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
   colName:'名称',colCountry:'产国',colProcess:'处理法',colVariety:'品种',colNotes:'风味',colSize:'规格',colPrice:'价格',colP:'每百克',
   items:n=>n+' 款',updated:'更新于',ago:{m:n=>n+' 分钟前',h:n=>n+' 小时前',d:n=>n+' 天前'},fP:'每百克价格',fAlt:'海拔',
   badgeNew:'上新',badgeHad:'喝过',badgeSold:'售罄',hadTip:'档案里有同一庄园或生产者：',failed:'这次没抓到，显示的是上一次的结果',none:'这家目前没有在售的豆子，或抓取失败',
   producer:'生产者',farm:'庄园 / 处理站',region:'产区',alt:'海拔',variety:'品种',process:'处理法',sizes:'规格',buy:'去官网 ↗',add:'加入待买',remove:'移出待买',
   short:'待买',shortN:n=>'待买 '+n,shortEmpty:'还没有加入任何豆子。',close:'关闭',site:'官网',blend:'拼配',unknown:'未注明',noMatch:'没有符合条件的豆子。',decaf:'低因',fx:'按当天欧洲央行汇率换算'},
- en:{lAll:'All roasters',lTop:'Top 30',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',other:'Elsewhere',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
+ en:{lAll:'All roasters',lTop:'Top 50',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',asia:'Asia','north-america':'North America',oceania:'Oceania','middle-east':'Middle East',curLocal:'Local',fxLocal:'shop prices in their own currency',orig:'original',trPending:'English intro on its way — showing the shop’s text.',totals:'Total',grams:'Weight',byProcess:'Process',byRoaster:'Roasters',bags:n=>n+(n===1?' bag':' bags'),mixed:'mixed currencies',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
   colName:'Name',colCountry:'Origin',colProcess:'Process',colVariety:'Variety',colNotes:'Notes',colSize:'Size',colPrice:'Price',colP:'per 100 g',
   items:n=>n+(n===1?' coffee':' coffees'),updated:'Updated',ago:{m:n=>n+' min ago',h:n=>n+' h ago',d:n=>n+' d ago'},fP:'Price per 100 g',fAlt:'Altitude',
   badgeNew:'new',badgeHad:'had',badgeSold:'sold out',hadTip:'Same farm or producer in your archive: ',failed:'Not reached this time — showing the previous list',none:'Nothing on sale right now, or the site could not be read',
@@ -163,9 +179,18 @@ const ZH={
 const cty=c=>!c?null:(LANG==='zh'?(ZH.country[c]||c):c);
 const proc=p=>{if(!p)return null;if(LANG!=='zh')return p;let s=p;ZH.process.forEach(([a,b])=>{s=s.replace(new RegExp(a,'i'),b);});return s;};
 const vari=v=>LANG==='zh'?(ZH.variety[v]||v):v;
-const SYM={EUR:'€',USD:'$',GBP:'£',JPY:'¥',CNY:'¥',CHF:'CHF ',SEK:'SEK ',NOK:'NOK ',DKK:'DKK ',AUD:'A$',CAD:'C$',HKD:'HK$',AED:'AED ',KRW:'₩'};
+const SYM={EUR:'€',USD:'$',GBP:'£',JPY:'JP¥',CNY:'¥',CHF:'CHF ',SEK:'SEK ',NOK:'NOK ',DKK:'DKK ',AUD:'A$',CAD:'C$',HKD:'HK$',AED:'AED ',KRW:'₩',MYR:'RM ',RON:'RON ',PLN:'PLN '};
 const money=(v,c)=>v==null?'—':(SYM[c]||(c?c+' ':''))+(c==='JPY'||c==='KRW'?Math.round(v).toLocaleString('en-US'):v.toFixed(2).replace(/\.00$/,''));
 const yuan=v=>v==null?'—':'¥'+Math.round(v).toLocaleString('en-US');
+let CUR=store.get('bm-cur','CNY');
+const RC=()=>CUR==='local'?'EUR':CUR;                       /* currency used for comparing / the price ruler */
+const conv=(v,from,to)=>{const fx=D&&D.rates;if(v==null||!fx||!fx[from]||!fx[to])return null;return v/fx[from]*fx[to];};
+const pv=i=>i.grams&&i.price!=null?conv(i.price/i.grams*100,i.cur,RC()):null;  /* per 100 g, comparable */
+const priceOut=i=>CUR==='local'?money(i.price,i.cur):money(conv(i.price,i.cur,CUR),CUR);
+const p100Out=i=>{if(!i.grams||i.price==null)return '—';if(CUR==='local')return money(i.price/i.grams*100,i.cur);const v=pv(i);return v==null?'—':(SYM[CUR]||'')+(CUR==='JPY'?Math.round(v):Math.round(v));};
+let TR={};
+const trOf=i=>TR[i.tk]||null;
+const notesOf=i=>{const x=trOf(i);return LANG==='zh'&&x&&x.notes_zh&&x.notes_zh.length?x.notes_zh:(i.notes||[]);};
 
 function ruler(el,cfg){
   const {min,max,step}=cfg, n=Math.round((max-min)/step), span=max-min||1;
@@ -229,11 +254,12 @@ function had(i){const hay=[i.title,i.farm,i.producer,i.desc].join(' ').toLowerCa
 function ago(iso){const m=Math.max(1,Math.round((Date.now()-Date.parse(iso))/6e4));const A=UI[LANG].ago;return m<60?A.m(m):m<2880?A.h(Math.round(m/60)):A.d(Math.round(m/1440));}
 
 function buildScrubs(){
-  const ps=D.items.map(i=>i.p100).filter(v=>v!=null).sort((a,b)=>a-b),as=D.items.map(i=>i.alt).filter(Boolean);
-  const B={};if(ps.length){const hi=ps[Math.floor(ps.length*.97)]||ps[ps.length-1];B.p100=[0,Math.ceil(hi/20)*20];}
+  const ps=D.items.map(pv).filter(v=>v!=null).sort((a,b)=>a-b),as=D.items.map(i=>i.alt).filter(Boolean);
+  const B={};if(ps.length){const hi=ps[Math.floor(ps.length*.97)]||ps[ps.length-1];B.p100=[0,Math.ceil(hi/(RC()==='CNY'?20:5))*(RC()==='CNY'?20:5)];}
   if(as.length)B.alt=[Math.floor(Math.min(...as)/100)*100,Math.ceil(Math.max(...as)/100)*100];
-  const s=LANG+JSON.stringify(B);if(s===sig)return;sig=s;FB=B;
-  const C={p100:{l:'fP',step:10,major:v=>v%50===0,lab:(a,b)=>{const L=[];for(let v=a;v<=b;v+=Math.max(50,Math.round((b-a)/4/50)*50))L.push([v,'¥'+v]);return L;},read:(a,b)=>'¥'+a+' – ¥'+b+(b>=FB.p100[1]?'+':'')},
+  const s=LANG+RC()+JSON.stringify(B);if(s===sig)return;if(FB&&sig&&!sig.startsWith(LANG+RC()))delete FR.p100;sig=s;FB=B;
+  const cs=SYM[RC()]||'', big=RC()==='CNY', st=big?10:1, mj=big?50:5;
+  const C={p100:{l:'fP',step:st,major:v=>v%mj===0,lab:(a,b)=>{const L=[];const d=Math.max(mj,Math.round((b-a)/4/mj)*mj);for(let v=a;v<=b;v+=d)L.push([v,cs+v]);return L;},read:(a,b)=>cs+a+' – '+cs+b+(b>=FB.p100[1]?'+':'')},
            alt:{l:'fAlt',step:50,major:v=>v%200===0,lab:(a,b)=>{const L=[];for(let v=Math.ceil(a/400)*400;v<=b;v+=400)L.push([v,String(v)]);return L;},read:(a,b)=>a+' – '+b+' m'}};
   const box=$('#scrubs');box.innerHTML='';
   Object.keys(B).forEach(k=>{const c=C[k],[lo,hi]=B[k];FR[k]=FR[k]?[Math.max(lo,FR[k][0]),Math.min(hi,FR[k][1])]:[lo,hi];
@@ -248,14 +274,14 @@ function filtered(){
   const q=$('#q').value.trim().toLowerCase();
   return D.items.filter(i=>{const r=R.get(i.roaster);if(!r)return false;
     if(region!=='all'&&r.region!==region)return false;
-    if(listV!=='all'&&(r.list||'top')!==listV)return false;
+    if(listV!=='all'&&(r.group||'top')!==listV)return false;
     if(kind!=='all'&&i.kind&&i.kind.length&&!i.kind.includes(kind)&&!i.kind.includes('omni'))return false;
     if(fStock&&!i.avail)return false;
     if(fNew&&!isNew(i))return false;
     if(fHad&&i._had)return false;
-    if(narrow('p100')){if(i.p100==null||i.p100<FR.p100[0]||(FR.p100[1]<FB.p100[1]&&i.p100>FR.p100[1]))return false;}
+    if(narrow('p100')){const v=pv(i);if(v==null||v<FR.p100[0]||(FR.p100[1]<FB.p100[1]&&v>FR.p100[1]))return false;}
     if(narrow('alt')){if(!i.alt||i.alt<FR.alt[0]||i.alt>FR.alt[1])return false;}
-    if(q){const hay=[i.title,r.name,i.country,cty(i.country),i.process,proc(i.process),(i.variety||[]).join(' '),(i.variety||[]).map(vari).join(' '),(i.notes||[]).join(' '),i.producer,i.farm,i.region].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    if(q){const hay=[i.title,r.name,i.country,cty(i.country),i.process,proc(i.process),(i.variety||[]).join(' '),(i.variety||[]).map(vari).join(' '),(i.notes||[]).join(' '),notesOf(i).join(' '),(trOf(i)||{}).zh,i.producer,i.farm,i.region].join(' ').toLowerCase();if(!hay.includes(q))return false;}
     return true;});
 }
 function headHTML(){
@@ -269,16 +295,19 @@ function rowHTML(i){
   return `<div class="ix-r${o?' open':''}${i.avail?'':' out'}" role="button" tabindex="0" data-id="${esc(i._id)}" aria-expanded="${o}">
 <span class="nm"><span class="t">${esc(i.title)}${b}</span><span class="sub">${esc(r.name)} · ${esc(c)}${i.process?' · '+esc(proc(i.process)):''}</span></span>
 <span class="c hm">${esc(c)}</span><span class="c hm">${esc(proc(i.process)||'—')}</span><span class="c hm">${esc((i.variety||[]).map(vari).join(', ')||'—')}</span>
-<span class="nt hm">${esc((i.notes||[]).join(' · '))}</span>
-<span class="c r hm">${i.grams?i.grams+' g':'—'}</span><span class="c r hm">${money(i.price,i.cur)}</span><span class="c r">${yuan(i.p100)}</span>
+<span class="nt hm">${esc(notesOf(i).join(' · '))}</span>
+<span class="c r hm">${i.grams?i.grams+' g':'—'}</span><span class="c r hm">${priceOut(i)}</span><span class="c r">${p100Out(i)}</span>
 <button type="button" class="star" data-star="${esc(i._id)}" aria-pressed="${st}" aria-label="${esc(st?t('remove'):t('add'))}">${st?'★':'☆'}</button></div>
 <div class="ix-x${o?' open':''}" data-x="${esc(i._id)}"><div class="ix-xi">${o?detailHTML(i):''}</div></div>`;
 }
 function detailHTML(i){
   const r=R.get(i.roaster),st=SHORT.includes(i._id);
   const rows=[[t('producer'),i.producer],[t('farm'),i.farm],[t('region'),i.region],[t('alt'),i.alt?i.alt+' m':null],[t('variety'),(i.variety||[]).map(vari).join(', ')],[t('process'),proc(i.process)],
-    [t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${money(s[1],i.cur)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
-  return `<div class="ix-xc"><div>${i.notes&&i.notes.length?`<p style="font-style:italic;font-size:18px">${esc(i.notes.join(' · '))}</p>`:''}<p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p>
+    [t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${CUR==='local'?money(s[1],i.cur):money(conv(s[1],i.cur,CUR),CUR)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
+  const x=trOf(i), N=notesOf(i);
+  const intro=x?`<p class="intro">${esc(x[LANG]||x.en)}</p><details class="orig"><summary>${t('orig')}</summary><p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p></details>`
+               :`<p class="pend">${t('trPending')}</p><p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p>`;
+  return `<div class="ix-xc"><div>${N.length?`<p style="font-style:italic;font-size:18px">${esc(N.join(' · '))}</p>`:''}${intro}
    ${i._had?`<p class="mono" style="font-family:var(--mono);font-size:12.5px;color:var(--ink2)">${esc(t('hadTip'))}${esc(i._had.roaster)} · ${esc(i._had.title)}${i._had.date?' · '+esc(i._had.date):''}</p>`:''}</div>
    <div><dl class="dl">${rows.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>
    <div class="acts"><a class="btn solid" href="${esc(i.url)}" target="_blank" rel="noopener">${t('buy')}</a><button type="button" class="btn" data-star="${esc(i._id)}">${st?t('remove'):t('add')}</button></div></div></div>`;
@@ -287,13 +316,13 @@ function render(){
   buildScrubs();
   const L=filtered();
   $('#resetF').hidden=!Object.keys(FB).some(narrow);
-  $('#count').textContent=t('items')(L.length)+' · '+t('fx');
-  const key={p100:i=>i.p100??1e9,price:i=>i.cny??1e9,g:i=>i.grams??1e9}[sortK];
+  $('#count').textContent=t('items')(L.length)+' · '+(CUR==='local'?t('fxLocal'):t('fx'));
+  const key={p100:i=>pv(i)??1e9,price:i=>conv(i.price,i.cur,'EUR')??1e9,g:i=>i.grams??1e9}[sortK];
   if(key)L.sort((a,b)=>(key(a)-key(b))*sortDir);
   const list=$('#list');
   let html=headHTML();
   if(gBy==='roaster'){
-    const order=D.roasters.filter(r=>(region==='all'||r.region===region)&&(listV==='all'||(r.list||'top')===listV));
+    const order=D.roasters.filter(r=>(region==='all'||r.region===region)&&(listV==='all'||(r.group||'top')===listV));
     order.forEach(r=>{const its=L.filter(i=>i.roaster===r.id);const filt=its.length===0&&D.items.some(i=>i.roaster===r.id);if(filt)return;
       html+=`<div class="rg"><span class="rk">${r.rank?'№ '+esc(r.rank):t('pick')}</span><h3>${esc(r.name)}</h3><span class="rm">${esc(r.city)} · ${esc(LANG==='zh'?r.country:r.country_en)}${r.note?' · '+esc(LANG==='zh'?r.note:r.note_en):''} · <a href="${esc(r.base)}" target="_blank" rel="noopener">${t('site')} ↗</a></span>${r.error?`<span class="warn">${t('failed')}</span>`:''}</div>`;
       html+=its.length?its.map(rowHTML).join(''):`<p class="empty">${t('none')}</p>`;});
@@ -305,10 +334,23 @@ function render(){
   list.innerHTML=html;
   renderShort();
 }
+function shortStats(S){
+  if(!S.length)return '';
+  const g=S.reduce((a,i)=>a+(i.grams||0),0);
+  let total;
+  if(CUR==='local'){const by={};S.forEach(i=>{by[i.cur]=(by[i.cur]||0)+(i.price||0);});total=Object.entries(by).map(([c,v])=>money(v,c)).join(' + ');}
+  else total=money(S.reduce((a,i)=>a+(conv(i.price,i.cur,CUR)||0),0),CUR);
+  const P=new Map();S.forEach(i=>{const k=proc(i.process)||t('unknown');const o=P.get(k)||{n:0,g:0};o.n++;o.g+=i.grams||0;P.set(k,o);});
+  const rows=[...P].sort((a,b)=>b[1].g-a[1].g);
+  const max=Math.max(...rows.map(r=>r[1].g),1);
+  const rs=new Set(S.map(i=>i.roaster)).size;
+  return `<div class="tot"><div><span>${t('totals')}</span><b>${total}</b></div><div><span>${t('grams')}</span><b>${g.toLocaleString('en-US')} g</b></div><div><span>${t('byRoaster')}</span><b>${rs}</b></div></div>
+  <div class="pbar"><h4>${t('byProcess')}</h4>${rows.map(([k,o])=>`<div class="pr"><span class="pk">${esc(k)}</span><i style="--w:${(o.g/max*100).toFixed(1)}%"></i><span class="pv">${t('bags')(o.n)} · ${o.g} g</span></div>`).join('')}</div>`;
+}
 function renderShort(){
   const S=SHORT.map(id=>D.items.find(i=>i._id===id)).filter(Boolean);
   const b=$('#shortBtn');b.hidden=!S.length;b.textContent=t('shortN')(S.length);
-  $('#short').innerHTML=`<button type="button" class="btn" id="sx">${t('close')}</button><h2>${t('short')}</h2>${S.length?S.map(i=>`<div class="srow"><a class="st" href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.title)}</a><button type="button" data-star="${esc(i._id)}">${t('remove')}</button><span class="sm">${esc(R.get(i.roaster).name)} · ${i.grams?i.grams+' g · ':''}${money(i.price,i.cur)} · ${yuan(i.p100)}/100 g</span></div>`).join(''):`<p class="empty">${t('shortEmpty')}</p>`}`;
+  $('#short').innerHTML=`<button type="button" class="btn" id="sx">${t('close')}</button><h2>${t('short')}</h2>${shortStats(S)}${S.length?S.map(i=>`<div class="srow"><a class="st" href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.title)}</a><button type="button" data-star="${esc(i._id)}">${t('remove')}</button><span class="sm">${esc(R.get(i.roaster).name)} · ${i.grams?i.grams+' g · ':''}${priceOut(i)} · ${p100Out(i)}/100 g</span></div>`).join(''):`<p class="empty">${t('shortEmpty')}</p>`}`;
   $('#sx').onclick=closeShort;
 }
 function closeShort(){$('#short').classList.remove('on');$('#scrim').classList.remove('on');}
@@ -324,13 +366,16 @@ function applyStatic(){
   $$('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));
   $('#q').placeholder=t('search');
   $$('#langTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===LANG));
-  $$('#regionTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===region));
+  if(D){const C=['europe','asia','north-america','oceania','middle-east'].filter(c=>D.roasters.some(r=>r.region===c));if(region!=='all'&&!C.includes(region))region='all';
+    $('#regionTabs').innerHTML=['all',...C].map(c=>`<button type="button" data-v="${c}" aria-pressed="${c===region}">${esc(t(c))}</button>`).join('');
+    $$('#regionTabs button').forEach(b=>b.onclick=()=>{region=b.dataset.v;store.set('bm-region',region);applyStatic();render();});}
+  $$('#curTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===CUR));
   $$('#listTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===listV));
   if(D)$('#upd').textContent=t('updated')+' '+ago(D.updated);
 }
 function wire(){
   const seg=(id,fn)=>$$(id+' button').forEach(b=>b.onclick=()=>{$$(id+' button').forEach(x=>x.setAttribute('aria-pressed',x===b));fn(b);render();});
-  seg('#regionTabs',b=>{region=b.dataset.v;store.set('bm-region',region);});
+  seg('#curTabs',b=>{CUR=b.dataset.c;store.set('bm-cur',CUR);});
   seg('#listTabs',b=>{listV=b.dataset.v;store.set('bm-list',listV);});
   seg('#kindTabs',b=>{kind=b.dataset.v;});
   seg('#groupTabs',b=>{gBy=b.dataset.g;});
@@ -349,8 +394,8 @@ function wire(){
 }
 async function boot(){
   applyStatic();wire();
-  const [m,h]=await Promise.all([fetch('data/menu.json',{cache:'no-cache'}).then(r=>r.json()),fetch('data/consumed.json').then(r=>r.json()).catch(()=>[])]);
-  D=m;HAD=h;HK=hadKeys();
+  const [m,h,tr]=await Promise.all([fetch('data/menu.json',{cache:'no-cache'}).then(r=>r.json()),fetch('data/consumed.json').then(r=>r.json()).catch(()=>[]),fetch('data/tr.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>({}))]);
+  D=m;HAD=h;HK=hadKeys();TR=tr||{};
   const first=D.items.reduce((a,i)=>i.first_seen<a?i.first_seen:a,'9999');D.firstRun=first;
   D.roasters.forEach(r=>R.set(r.id,r));
   D.items.forEach((i,n)=>{i._id=i.roaster+'|'+i.url;i._had=had(i);});

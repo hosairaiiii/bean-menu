@@ -18,12 +18,27 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, li
 PAUSE = 0.8
 RECENT = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
 
-def session(country="FR", currency="EUR"):
+CC = {"Norway": "NO", "Denmark": "DK", "USA": "US", "Sweden": "SE", "Spain": "ES", "Australia": "AU", "Netherlands": "NL",
+      "France": "FR", "South Korea": "KR", "UAE": "AE", "Japan": "JP", "Canada": "CA", "Germany": "DE", "Ireland": "IE",
+      "Italy": "IT", "Hong Kong": "HK", "Switzerland": "CH", "UK": "GB", "Finland": "FI", "Austria": "AT", "Slovenia": "SI",
+      "Latvia": "LV", "Poland": "PL", "Belgium": "BE", "Greece": "GR", "Romania": "RO", "Malaysia": "MY"}
+
+def session(r=None):
+    """English content; for Shopify the market cookie of the roaster's own country, so prices come in its home currency
+    (otherwise Shopify picks a market from the visitor's IP / language, e.g. USD on GitHub's servers)."""
     s = requests.Session()
-    s.headers.update({"User-Agent": UA, "Accept-Language": "en;q=0.9,fr;q=0.8"})
-    s.cookies.set("localization", country)
-    s.cookies.set("cart_currency", currency)
+    s.headers.update({"User-Agent": UA, "Accept-Language": "en;q=0.9"})
+    if r and CC.get(r.get("country_en")):
+        s.cookies.set("localization", CC[r["country_en"]])
     return s
+
+def page_text(res):
+    """Decode HTML as UTF-8 when it is UTF-8 (requests falls back to Latin-1 when the header has no charset)."""
+    b = res.content
+    try:
+        return b.decode("utf-8")
+    except UnicodeDecodeError:
+        return b.decode(res.encoding or "latin-1", "replace")
 
 def get(s, url, **kw):
     time.sleep(PAUSE)
@@ -43,11 +58,25 @@ def rates():
         out["AED"] = out["USD"] * 3.6725  # AED is pegged to USD
     return out
 
+def tkey(it):
+    """Same key as scraper/translate.py – lets the page find an item's translation."""
+    import hashlib
+    src = (it.get("title") or "") + "\n" + (it.get("desc") or "") + "\n" + "|".join(it.get("notes") or [])
+    return hashlib.sha1(src.encode("utf-8")).hexdigest()[:14]
+
+CJK = r"[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef]"
+def clean_title(t):
+    t = re.sub(r"【[^】]*】", " ", t)
+    t = re.sub(r"[（(][^）)]*" + CJK + r"[^）)]*[）)]", " ", t)   # Japanese reading in brackets
+    t = re.sub(r"\s*[｜|]\s*[^|｜]*" + CJK + r".*$", "", t)        # "｜自家焙煎コーヒー豆"
+    t = t.replace("“", '"').replace("”", '"')
+    return re.sub(r"\s+", " ", t).strip(" -–|")
+
 # ---------- item assembly ----------
 def make_item(r, title, url, text, sizes, cur, extra_kind=""):
     """sizes: list of (grams|None, price, available, label)"""
     f = enrich(title, text)
-    good = [s for s in sizes if s[0] and 60 <= s[0] <= 1100]
+    good = [s for s in sizes if s[0] and 40 <= s[0] <= 1100]
     pick = None
     if good:
         avail = [s for s in good if s[2]]
@@ -57,7 +86,7 @@ def make_item(r, title, url, text, sizes, cur, extra_kind=""):
         pick = min(sizes, key=lambda s: s[1])
     return {
         "roaster": r["id"],
-        "title": re.sub(r"\s+", " ", title).strip(),
+        "title": clean_title(title),
         "url": url,
         "cur": cur,
         "price": pick[1] if pick else None,
@@ -72,7 +101,7 @@ def make_item(r, title, url, text, sizes, cur, extra_kind=""):
 def detail_text(s, url, hint="", title=""):
     """Product page text, from the product description onwards (skips menus / country pickers)."""
     try:
-        h = get(s, url).content.decode("utf-8", "replace")
+        h = page_text(get(s, url))
     except Exception:
         return None
     body = html_text(re.sub(r"(?is)<(script|style|nav|header|footer|select)[^>]*>.*?</\1>", " ", h))
@@ -84,7 +113,7 @@ def detail_text(s, url, hint="", title=""):
 
 # ---------- Shopify ----------
 def scrape_shopify(r):
-    s = session()
+    s = session(r)
     base = r["base"].rstrip("/")
     link = (r.get("link_base") or base).rstrip("/")
     items, page = [], 1
@@ -132,11 +161,14 @@ def scrape_shopify(r):
             break
         page += 1
     cur = r.get("cur")
-    try:
-        cj = get(s, f"{base}/cart.js").json()
-        cur = cj.get("currency") or cur
-    except Exception:
-        pass
+    for path in ("/cart.js", "/meta.json"):  # cart.js follows the same market as products.json
+        try:
+            c = get(s, base + path).json().get("currency")
+            if c:
+                cur = c
+                break
+        except Exception:
+            pass
     for it in items:
         it["cur"] = cur
     return items
@@ -274,7 +306,7 @@ def scrape_html(r):
     urls = []
     for lu in r["list"]:
         try:
-            h = get(s, lu).text
+            h = page_text(get(s, lu))
         except Exception:
             continue
         for m in re.finditer(r'href=["\']([^"\']+)["\']', h):
@@ -284,7 +316,7 @@ def scrape_html(r):
     items = []
     for u in urls[:90]:
         try:
-            h = get(s, u).text
+            h = page_text(get(s, u))
         except Exception:
             continue
         prods = jsonld_products(h)
@@ -375,9 +407,88 @@ def merge(items):
             it["grams"] = None
         idx[k] = it
         out.append(it)
-    return [i for i in out if i.get("grams")]
+    return [i for i in out if i.get("grams") or (i.get("country") and i.get("price"))]
 
-ADAPTERS = {"shopify": scrape_shopify, "woo": scrape_woo, "html": scrape_html}
+# ---------- Squarespace (collection?format=json) ----------
+def scrape_squarespace(r):
+    s = session()
+    items = []
+    for lu in r["list"]:
+        url = lu
+        for _ in range(6):
+            d = get(s, url, params={"format": "json"}).json()
+            for x in d.get("items", []):
+                title = html_text(x.get("title") or "")
+                text = html_text((x.get("excerpt") or "") + " " + (x.get("body") or ""))
+                if not is_coffee(title, "coffee", [], text[:200]):
+                    continue
+                sizes = []
+                for v in x.get("variants", []):
+                    a = v.get("attributes") or {}
+                    pm = v.get("priceMoney") or {}
+                    try:
+                        price = float(pm.get("value") or v.get("price", 0) / 100)
+                    except Exception:
+                        continue
+                    avail = bool(v.get("unlimited")) or (v.get("qtyInStock") or 0) > 0
+                    label = " ".join(str(t) for t in a.values())
+                    sizes.append((grams_in(label) or grams_in(title), price, avail, label))
+                if not sizes or not any(z[0] for z in sizes):
+                    continue
+                it = make_item(r, title.split(" · ")[0] + (" · " + title.split(" · ")[1].title() if " · " in title else ""),
+                               urljoin(r["base"], x.get("fullUrl") or ""), text, sizes, (x.get("variants") or [{}])[0].get("priceMoney", {}).get("currency") or r.get("cur"))
+                items.append(it)
+            nxt = (d.get("pagination") or {}).get("nextPageUrl")
+            if not nxt:
+                break
+            url = urljoin(r["base"], nxt)
+    return items
+
+# ---------- Subkit storefronts (Next.js, product JSON embedded in the page) ----------
+def scrape_subkit(r):
+    s = session()
+    base = r["base"].rstrip("/")
+    h = page_text(get(s, base + "/shop"))
+    slugs = list(dict.fromkeys(re.findall(r'href="/shop/([a-z0-9-]+)"', h)))
+    items = []
+    for slug in slugs[:80]:
+        if EXCLUDE.search(slug.replace("-", " ")):
+            continue
+        try:
+            h = page_text(get(s, f"{base}/shop/{slug}"))
+        except Exception:
+            continue
+        q = h.replace('\\"', '"')
+        q = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), q)
+        m = re.search(r'"product":\{"id":\d+.*?"slug":"' + re.escape(slug) + r'","type":"[^"]*","name":"([^"]+)"', q)
+        title = m.group(1) if m else slug.replace("-", " ").title()
+        i = q.find('"variants":[')
+        if i < 0:
+            continue
+        try:
+            arr, _ = json.JSONDecoder().raw_decode(q, i + len('"variants":'))
+        except Exception:
+            continue
+        body = html_text(q)
+        j = body.find(title)
+        text = body[j:j + 3000] if j >= 0 else ""
+        if not is_coffee(title, "coffee", [], text[:200]):
+            continue
+        sizes = []
+        for v in arr:
+            try:
+                price = float(v.get("price")) / 100
+            except Exception:
+                continue
+            label = " ".join(str(o.get("value") or o.get("name") or "") for o in (v.get("options") or []) if isinstance(o, dict)) or v.get("name") or ""
+            sc = v.get("stockCount")
+            sizes.append((grams_in(label) or grams_in(text[:600]) or grams_in(title), price, sc is None or sc > 0, label))
+        if not sizes or not any(z[0] for z in sizes):
+            continue
+        items.append(make_item(r, title, f"{base}/shop/{slug}", text, sizes, r.get("cur")))
+    return items
+
+ADAPTERS = {"shopify": scrape_shopify, "woo": scrape_woo, "html": scrape_html, "squarespace": scrape_squarespace, "subkit": scrape_subkit}
 
 def main(only=None):
     roasters = json.loads((ROOT / "roasters.json").read_text())
@@ -412,6 +523,7 @@ def main(only=None):
             items = [i for i in old.get("items", []) if i["roaster"] == r["id"]]
         for it in items:
             it["first_seen"] = prev.get(it["url"]) or it.get("first_seen") or today
+            it["tk"] = tkey(it)
             if it.get("price") is not None and it.get("cur") in fx and "CNY" in fx:
                 eur = it["price"] / fx[it["cur"]]
                 it["cny"] = round(eur * fx["CNY"], 2)
@@ -420,13 +532,16 @@ def main(only=None):
                 it["cny"] = it.get("cny"); it["p100"] = it.get("p100")
         items = [it for it in items if it.get("price") and (it.get("p100") is None or it["p100"] >= 8)]
         all_items += items
-        status.append({**{k: r.get(k) for k in ("id", "name", "rank", "list", "city", "country", "country_en", "region", "note", "note_en", "base")},
+        status.append({**{k: r.get(k) for k in ("id", "name", "rank", "group", "city", "country", "country_en", "region", "note", "note_en", "base")},
                        "count": len(items), "error": err, "secs": round(time.time() - t0, 1)})
         print(f"{r['id']:<18} {len(items):>3} items  {('ERR ' + err) if err else ''}", flush=True)
     if only and old:
         keep = [i for i in old.get("items", []) if i["roaster"] not in only]
         all_items = keep + all_items
         status = [x for x in old.get("roasters", []) if x["id"] not in only] + status
+    order = {r["id"]: n for n, r in enumerate(roasters)}
+    status = sorted([x for x in status if x["id"] in order], key=lambda x: order[x["id"]])
+    all_items = [i for i in all_items if i["roaster"] in order]
     data = {"updated": now, "rates": fx, "roasters": status, "items": all_items}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
