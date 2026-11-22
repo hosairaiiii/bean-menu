@@ -27,6 +27,14 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install requests
+      - name: Probe GitHub Models
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sS -i -X POST https://models.github.ai/inference/chat/completions \
+            -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" -H "Content-Type: application/json" \
+            -d '{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"Say hi in Chinese."}]}' | head -c 1500 || true
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scraper/translate.py 12
