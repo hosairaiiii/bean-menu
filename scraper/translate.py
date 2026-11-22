@@ -45,8 +45,16 @@ def call(batch, token):
             {"role": "user", "content": json.dumps(batch, ensure_ascii=False)},
         ],
     }
-    r = requests.post(URL, json=payload, timeout=120,
-                      headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    url = URL
+    for _ in range(3):   # follow redirects but keep it a POST (requests would turn it into a GET)
+        r = requests.post(url, json=payload, timeout=120, headers=hdr, allow_redirects=False)
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
+            url = requests.compat.urljoin(url, r.headers["Location"])
+            print("redirect →", url, flush=True)
+            continue
+        break
     if r.status_code == 429:
         raise RuntimeError("quota: " + r.text[:200])
     if r.status_code >= 400:
