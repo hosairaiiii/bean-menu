@@ -74,6 +74,33 @@ def find_countries(text):
             hits.append((m.start(), n))
     return [n for _, n in sorted(hits)]
 
+# growing regions → country, used only when no country name appears
+REGION_COUNTRY = {
+    "Colombia": "huila|nariño|narino|cauca|tolima|antioquia|quind[ií]o|risaralda|santander|caldas|valle del cauca|pitalito|acevedo|planadas|inz[aá]|popay[aá]n|buesaco|urrao",
+    "Guatemala": "el injerto|huehuetenango|acatenango|atitl[aá]n|antigua|fraijanes|cob[aá]n|san marcos",
+    "Panama": "lamastus|elida estate|hacienda la esmeralda|janson|finca deborah|ninety plus|altieri|boquete|volc[aá]n|chiriqu[ií]|renacimiento|bambito|jaramillo|candela",
+    "Ethiopia": "gesha village|alo|chilaka|elto|elora|tamiru tadesse|sidam[ao]|guji|yirga ?ch?effe|gedeo|uraga|hambela|bensa|arbegona|kaffa|jimma|limu|west arsi|nensebo|shakiso|bench maji|kochere|chelbesa|banko|aricha|bule hora|odo shakiso|hamasho|bombe|shantawene|agaro|gera|sheka|bona zuria|keramo|dimtu",
+    "Kenya": "nyeri|kirinyaga|embu|murang.?a|kiambu|meru|othaya|karatina|kerugoya",
+    "Costa Rica": "tarraz[uú]|west valley|central valley|naranjo|dota|brunca|los santos|chirrip[oó]",
+    "Honduras": "santa b[aá]rbara|marcala|cop[aá]n|ocotepeque|comayagua|el para[ií]so|opalaca|montecillos",
+    "Peru": "cusco|cuzco|cajamarca|amazonas|puno|jaén|jaen|san ignacio|villa rica|chanchamayo",
+    "Rwanda": "nyamasheke|huye|gakenke|nyamagabe|rutsiro|rulindo|karongi",
+    "Burundi": "kayanza|ngozi|muramvya|kirundo",
+    "Brazil": "minas gerais|mantiqueira|cerrado|mogiana|sul de minas|espírito santo|carmo de minas",
+    "Ecuador": "loja|pichincha|imbabura|zamora|nanegal|intag",
+    "Bolivia": "caranavi|yungas|samaipata",
+    "Mexico": "oaxaca|chiapas|veracruz|puebla",
+    "El Salvador": "santa ana|apaneca|chalatenango|ilamatepec",
+    "Nicaragua": "jinotega|nueva segovia|matagalpa|dipilto",
+    "China": "yunnan|pu.?er|baoshan",
+    "Indonesia": "aceh|gayo|sumatra|bali kintamani|flores",
+    "Yemen": "haraz|bani mattar|haymah",
+}
+_rpat = [(c, re.compile(r"\b(?:" + p + r")\b", re.I)) for c, p in REGION_COUNTRY.items()]
+def country_from_region(text):
+    hits = [(m.start(), c) for c, p in _rpat for m in [p.search(text)] if m]
+    return [c for _, c in sorted(hits)][:1]
+
 # ---------- process ----------
 def find_process(text):
     t = text.lower()
@@ -171,21 +198,26 @@ def find_varieties(text):
 LABELS = r"(?:flavou?rs?|tasting notes?|cup notes?|notes?|taste|we taste|in the cup|producers?|farmers?|grown by|farm|estate|finca|washing station|station|mill|origin|region|area|altitude|elevation|masl|variet(?:y|ies|al)|cultivars?|process(?:ing)?|method|harvest|importer|exporter|roast(?:ed)? for|roast|recommended|weight|size)"
 def labelled(text, *names):
     for name in names:
-        m = re.search(r"(?:^|\n|\s)(?:" + name + r")\s*[:：\-–]\s*(.+?)(?=(?:\s|\n)" + LABELS + r"\s*[:：]|\n|$)", text, re.I)
+        m = re.search(r"(?:^|\n|\s)(?:" + name + r")(?:\s*[:：\-–]\s*|[^\S\n]*\n[^\S\n]*)(.+?)(?=(?:\s|\n)" + LABELS + r"\s*[:：]|\n|$)", text, re.I)
         if m:
             v = m.group(1).strip(" .;,|")
             if 1 < len(v) < 160:
                 return v
     return None
 
-STOP_NOTES = {"familiar", "lingering sweetness", "sweetness", "balance", "clean", "complex", "juicy", "bright"}
+STOP_NOTES = {"familiar", "lingering sweetness", "sweetness", "balance", "clean", "complex", "juicy", "bright", "élégante", "élégant", "maîtrisée", "intense", "complexe", "délicate", "gourmand", "gourmande", "juicy", "complex", "clean", "sweet", "balanced", "bright"}
 def split_notes(s):
     s = re.sub(r"^(?:a|an|the)\s+", "", s.strip(), flags=re.I)
-    s = re.sub(r"\b(and|&|und|et|y)\b", ",", s, flags=re.I)
+    s = re.sub(r"\b(and|und|et|y|og|och)\b|&", ",", s, flags=re.I)
     parts = [p.strip(" .;:-–—|·•*\"'") for p in re.split(r"[,/;|·•+]|、", s)]
     out = []
     for p in parts:
         p = re.sub(r"^(?:a|an|the|some|hints? of|notes? of)\s+", "", p, flags=re.I)
+        p = re.split(r"\s+(?:roasted|whole bean|ristede)\b", p, flags=re.I)[0].strip()
+        p = re.sub(r"^with (?:an? |some )?|\s+(?:finish|aftertaste|body|notes?)$|!+$", "", p, flags=re.I).strip()
+        if len(p.split()) > 3 or re.search(r"\b(?:cup|orders?|shipping|placed|if any|qualities|carried)\b", p, re.I):
+            continue
+        p = re.sub(r"^(?:de|d’|d'|du|des|la|le|les)\s*", "", p, flags=re.I) if re.match(r"(?:de|d’|d'|du|des)\b|d[’']", p, re.I) else p
         if 1 < len(p) <= 32 and p.lower() not in STOP_NOTES and not re.search(r"\d{3,}|http|roast|brew|recipe|whether|espresso|filter", p, re.I):
             out.append(p[:1].upper() + p[1:])
     return out[:6]
@@ -203,7 +235,12 @@ PROSE_NOTES = [
     r"tastes? (?:of|like)\s+(.+?)[.\n]",
 ]
 def find_notes(text, title=""):
-    v = labelled(text, r"flavou?r notes?", r"tasting notes?", r"cup notes?", r"notes?", r"flavou?rs?", r"taste", r"in the cup", r"we taste", r"tastes like")
+    m = re.search(r"(?i:flavou?r|tasting|cup) (?i:notes?)[^\S\n]+([A-Z][^\n]{2,120})", text)
+    if m:
+        n = split_notes(m.group(1))
+        if n:
+            return n
+    v = labelled(text, r"taste description", r"flavou?r notes?", r"tasting notes?", r"cup notes?", r"notes?", r"flavou?rs?", r"taste", r"in the cup", r"we taste", r"tastes like")
     if v:
         n = split_notes(v)
         if n:
@@ -222,9 +259,49 @@ def find_notes(text, title=""):
                 return n
     # many roasters put notes in the title after a separator: "Kenya Gondo AA – Blackcurrant, Plum"
     m = re.search(r"[|–—]\s*([A-Za-z ,&/]+)$", title)
-    if m and "," in m.group(1):
+    if m and "," in m.group(1) and not find_countries(m.group(1)) and not country_from_region(m.group(1)):
         return split_notes(m.group(1))
-    return []
+    return lexicon_notes(text)
+
+# last resort for prose descriptions (mostly French): pick flavour words from the tasting paragraph
+FLAVOR_LEX = [
+    ("thé noir", "Black tea"), ("thé vert", "Green tea"), ("thé blanc", "White tea"), ("bergamote", "Bergamot"),
+    ("fleur d.oranger", "Orange blossom"), ("jasmin", "Jasmine"), ("rose", "Rose"), ("violette", "Violet"), ("lavande", "Lavender"),
+    ("chèvrefeuille", "Honeysuckle"), ("hibiscus", "Hibiscus"), ("floral", "Floral"),
+    ("zeste d.orange", "Orange zest"), ("orange sanguine", "Blood orange"), ("mandarine", "Mandarin"), ("clémentine", "Clementine"),
+    ("pamplemousse", "Grapefruit"), ("citron vert", "Lime"), ("citron", "Lemon"), ("yuzu", "Yuzu"), ("agrumes", "Citrus"), ("orange", "Orange"),
+    ("pêche", "Peach"), ("abricot", "Apricot"), ("nectarine", "Nectarine"), ("prune", "Plum"), ("cerise", "Cherry"), ("litchi", "Lychee"),
+    ("mangue", "Mango"), ("ananas", "Pineapple"), ("fruit de la passion", "Passion fruit"), ("papaye", "Papaya"), ("goyave", "Guava"),
+    ("framboise", "Raspberry"), ("fraise", "Strawberry"), ("mûre", "Blackberry"), ("myrtille", "Blueberry"), ("cassis", "Blackcurrant"),
+    ("groseille", "Redcurrant"), ("raisin", "Grape"), ("pomme", "Apple"), ("poire", "Pear"), ("melon", "Melon"), ("pastèque", "Watermelon"),
+    ("figue", "Fig"), ("datte", "Date"), ("fruits rouges", "Red fruits"), ("fruits jaunes", "Yellow fruits"), ("fruits tropicaux", "Tropical fruits"),
+    ("rhubarbe", "Rhubarb"), ("kiwi", "Kiwi"),
+    ("chocolat noir", "Dark chocolate"), ("chocolat au lait", "Milk chocolate"), ("chocolat", "Chocolate"), ("cacao", "Cocoa"),
+    ("caramel", "Caramel"), ("miel", "Honey"), ("sucre de canne", "Cane sugar"), ("cassonade", "Brown sugar"), ("mélasse", "Molasses"),
+    ("vanille", "Vanilla"), ("nougat", "Nougat"), ("praliné", "Praline"), ("noisette", "Hazelnut"), ("amande", "Almond"), ("noix", "Walnut"),
+    ("cannelle", "Cinnamon"), ("épices", "Spice"), ("cardamome", "Cardamom"), ("gingembre", "Ginger"), ("réglisse", "Liquorice"),
+    ("vin rouge", "Red wine"), ("rhum", "Rum"), ("whisky", "Whisky"), ("biscuit", "Biscuit"), ("beurre", "Butter"),
+]
+_lex = [(re.compile(r"(?<![a-zà-ÿ])" + fr + r"s?(?![a-zà-ÿ])", re.I), en) for fr, en in FLAVOR_LEX]
+_lex_full = [(re.compile(r"^(?:notes? )?(?:de |d’|d')?" + fr + r"s?$", re.I), en) for fr, en in FLAVOR_LEX]
+def to_en(n):
+    for p, en in _lex_full:
+        if p.match(n.strip()):
+            return en
+    return n
+
+def lexicon_notes(text):
+    para = text[:700]
+    hits, taken = [], []
+    for p, en in _lex:
+        m = p.search(para)
+        if m and not any(a <= m.start() < b for a, b in taken):
+            hits.append((m.start(), en)); taken.append((m.start(), m.end()))
+    out = []
+    for _, en in sorted(hits):
+        if en not in out:
+            out.append(en)
+    return out[:5]
 
 def find_altitude(text):
     m = re.search(r"(\d[\d.,]{2,5})\s*(?:[-–to]+\s*(\d[\d.,]{2,5}))?\s*(?:m\.?a\.?s\.?l\.?|masl|metres|meters|m\b|mts|m above)", text, re.I)
@@ -264,7 +341,7 @@ def from_ship_weight(g):
     return max(cands) if cands else None
 
 # ---------- classification ----------
-EXCLUDE = re.compile(r"subscri|abonnement|gift ?card|giftcard|gift box|gavekort|presentkort|voucher|equipment|merch|apparel|t-?shirt|hoodie|tote|\bcap\b|beanie|\bmug\b|\bcup\b(?! of excellence)|tumbler|glass|carafe|filter paper|papers|grinder|kettle|dripper|scale|capsule|nespresso|\bpods?\b|drip ?bag|brew ?bag|coffee ?bag(?:s)? \(|single serve|steep|sample|taster|tasting box|chocolate|\btea\b|matcha|chai|workshop|course|training|cupping|tour|class|book|candle|poster|bundle|\bset\b|\bbox\b|trio|duo|kit|cleaner|cafetto|thermos|wholesale|b2b|office|gift|calendar|advent|instant|concentrate|cold brew|ticket|donation|deposit|shipping|recurring|installment|canister|accessor|machine|baratza|breville|barista express|aeropress|chemex|\bv60\b|kalita|hario|fellow|acaia|difluid|refractometer|camiseta|\btaza\b|plato|vinyl|\brecord\b|\blp\b|album|sticker|towel|\bufo\b|\bdrip\b|tasse|lelit|la marzocco|decent|espresso machine|filter holder|portafilter|tamper|pitcher|jug", re.I)
+EXCLUDE = re.compile(r"subscri|abonnement|gift ?card|giftcard|gift box|gavekort|presentkort|voucher|equipment|merch|apparel|t-?shirt|hoodie|tote|\bcap\b|beanie|\bmug\b|\bcup\b(?! of excellence)|tumbler|glass|carafe|filter paper|papers|grinder|kettle|dripper|scale|capsule|nespresso|\bpods?\b|drip ?bag|brew ?bag|coffee ?bag(?:s)? \(|single serve|steep|sample|taster|tasting box|chocolate|\btea\b|matcha|chai|workshop|course|training|cupping|tour|class|book|candle|poster|bundle|\bset\b|\bbox\b|trio|duo|kit|cleaner|cafetto|thermos|wholesale|b2b|office|gift|calendar|advent|instant|concentrate|cold brew|ticket|donation|deposit|shipping|recurring|installment|canister|accessor|machine|baratza|breville|barista express|aeropress|chemex|\bv60\b|kalita|hario|fellow|acaia|difluid|refractometer|camiseta|\btaza\b|plato|vinyl|\brecord\b|\blp\b|album|sticker|towel|\bufo\b|\bdrip\b|tasse|lelit|la marzocco|decent|espresso machine|filter holder|portafilter|tamper|pitcher|jug|\btees?\b|sugar|glucose|syrup|bottle|special order|test roast|booster|sibarist|green coffee|\bgreen\b beans?|rohkaffee|brewer|paper filter|\+ ?filter|grinding|\bburrs?\b|\bdiscs?\b", re.I)
 COFFEE_HINT = re.compile(r"coffee|coffees|kaffe|kaffee|café|cafe|filter|espresso|omni|single origin|roast|豆|コーヒー", re.I)
 
 def is_coffee(title, ptype="", tags=(), extra=""):
@@ -286,7 +363,7 @@ def roast_kind(*parts):
 def enrich(title, text):
     """Fields derived from the combined title + description."""
     both = title + "\n" + text
-    countries = find_countries(title) or find_countries(text)
+    countries = find_countries(title) or find_countries(text) or country_from_region(both)
     blend = bool(re.search(r"\bblend\b|拼配|ブレンド", title, re.I))
     proc = find_process(title) or find_process(text)
     return {
@@ -295,7 +372,7 @@ def enrich(title, text):
         "blend": blend,
         "process": proc,
         "variety": find_varieties(title) + [v for v in find_varieties(text) if v not in find_varieties(title)],
-        "notes": find_notes(text, title),
+        "notes": [to_en(n) for n in find_notes(text, title)],
         "producer": find_producer(text),
         "farm": find_farm(text),
         "region": find_region(text),

@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from parse import html_text, enrich, is_coffee, grams_in, from_ship_weight, roast_kind, EXCLUDE, find_countries, find_process
+from parse import country_from_region, html_text, enrich, is_coffee, grams_in, from_ship_weight, roast_kind, EXCLUDE, find_countries, find_process
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "menu.json"
@@ -69,6 +69,19 @@ def make_item(r, title, url, text, sizes, cur, extra_kind=""):
         "desc": text[:600],
     }
 
+def detail_text(s, url, hint="", title=""):
+    """Product page text, from the product description onwards (skips menus / country pickers)."""
+    try:
+        h = get(s, url).content.decode("utf-8", "replace")
+    except Exception:
+        return None
+    body = html_text(re.sub(r"(?is)<(script|style|nav|header|footer|select)[^>]*>.*?</\1>", " ", h))
+    key = (hint or "").strip()[:40]
+    i = body.find(key) if len(key) > 12 else -1
+    if i < 0 and title:
+        i = body.find(title[:24])
+    return body[i:i + 4000] if i >= 0 else None
+
 # ---------- Shopify ----------
 def scrape_shopify(r):
     s = session()
@@ -84,16 +97,26 @@ def scrape_shopify(r):
             text = html_text(p.get("body_html"))
             if not is_coffee(p["title"], p.get("product_type", ""), p.get("tags", []), text[:200]):
                 continue
+            tags = p.get("tags", [])
+            if any(re.search(r"white-?label|private-?label|green ?coffee|bigface-ws", t, re.I) for t in tags):
+                continue
             avail_any = any(v.get("available", True) for v in p.get("variants", []))
-            fresh = (p.get("updated_at") or "")[:10] >= RECENT
-            if not avail_any and not fresh:
-                continue  # long-gone archive entries
-            strong = bool(re.search(r"coffee|kaffe|café|filter|espresso", p.get("product_type", ""), re.I)) or bool(find_countries(p["title"] + " " + text[:400])) or bool(find_process(p["title"]))
+            pub = (p.get("published_at") or p.get("created_at") or "")[:10]
+            if not avail_any and pub < RECENT:
+                continue  # sold out and not new: archive entry, not on the menu
+            strong = bool(re.search(r"coffee|kaffe|café|filter|espresso", p.get("product_type", ""), re.I)) \
+                or bool(find_countries(p["title"] + " " + text[:400])) or bool(find_process(p["title"])) \
+                or bool(re.search(r"\b(?:flavou?r|tasting) notes?\b|\bnotes of\b|cultivar|varietal|washed|natural process", text, re.I))
+            tare = r.get("tare", 0)
+            if r.get("detail") and avail_any:
+                text = detail_text(s, f"{base}/products/{p['handle']}", text[:40], p["title"]) or text
             opts = " ".join(o["name"] + " " + " ".join(o.get("values", [])) for o in p.get("options", []))
             sizes = []
             for v in p.get("variants", []):
+                if re.search(r"case ?pack|wholesale|subscri|\b[2-9]\d* ?x\b", v.get("title") or "", re.I):
+                    continue
                 g = grams_in(v.get("title")) or grams_in(" ".join(filter(None, [v.get("option1"), v.get("option2"), v.get("option3")]))) \
-                    or grams_in(p["title"]) or grams_in(text[:300]) or (from_ship_weight(v.get("grams")) if strong else None)
+                    or grams_in(p["title"]) or grams_in(text[:300]) or (from_ship_weight((v.get("grams") or 0) - tare) if strong else None)
                 try:
                     price = float(v["price"])
                 except Exception:
@@ -101,7 +124,8 @@ def scrape_shopify(r):
                 sizes.append((g, price, v.get("available", True), v.get("title")))
             if sizes and not any(sz[0] for sz in sizes):
                 continue  # no recognisable bag size → probably not a bag of beans
-            items.append(make_item(r, p["title"], f"{link}/products/{p['handle']}", text, sizes, None, opts + " " + " ".join(p.get("tags", []))))
+            url = f"{link}/products/{p['handle']}"
+            items.append(make_item(r, p["title"], url, text, sizes, None, opts + " " + " ".join(tags)))
         if len(prods) < 250:
             break
         page += 1
@@ -126,12 +150,15 @@ def scrape_woo(r):
         if res.status_code == 400:
             break
         res.raise_for_status()
+        if not res.text.strip() and page > 1:
+            break  # some stores answer past the last page with an empty body
         try:
             prods = res.json()
         except Exception:
             raise RuntimeError(f"not JSON (HTTP {res.status_code}, {res.headers.get('content-type')}): {res.text[:120]!r}")
         if not prods:
             break
+        last = int(res.headers.get("X-WP-TotalPages") or 0)
         for p in prods:
             title = html_text(p.get("name"))
             cats = " ".join(c.get("slug", "") + " " + c.get("name", "") for c in p.get("categories", []))
@@ -151,13 +178,67 @@ def scrape_woo(r):
             g0 = min(gs) if gs else (grams_in(title) or grams_in(text[:400]))
             sizes.append((g0, price, p.get("is_in_stock", True), attrs))
             it = make_item(r, title, p.get("permalink"), text, sizes, pr.get("currency_code") or r.get("cur"), cats + " " + attrs)
+            A = {a.get("name", "").lower(): [html_text(t.get("name", "")) for t in a.get("terms", [])] for a in p.get("attributes", [])}
+            def attr(*keys):
+                for k in keys:
+                    for name, vals in A.items():
+                        if re.fullmatch(k, name) and vals:
+                            return vals
+                return None
+            v = attr(r"produc\w*", r"farmer", r"growers?")
+            if v and not it.get("producer") and not re.search(r"différents|various|multiple|smallholder", v[0], re.I):
+                it["producer"] = v[0]
+            v = attr(r"vari[eé]t[eéy]\w*", r"cultivars?", r"varietals?")
+            if v and not it.get("variety"):
+                it["variety"] = v[:5]
+            v = attr(r"process\w*", r"proc[eé]d[eé]", r"traitement")
+            if v and not it.get("process"):
+                it["process"] = find_process(" ".join(v)) or it.get("process")
+            v = attr(r"pays", r"origine?", r"country", r"r[eé]gion")
+            if v and not it.get("country"):
+                c = find_countries(" ".join(v)) or country_from_region(" ".join(v))
+                if c:
+                    it["country"], it["countries"] = c[0], c[:4]
             items.append(it)
-        if len(prods) < 100:
+        if len(prods) < 100 or (last and page >= last):
             break
         page += 1
     return items
 
 # ---------- generic HTML (JSON-LD first) ----------
+def hydrogen_variants(html):
+    """Headless Shopify (Hydrogen / Next) pages embed the Storefront product JSON, often string-escaped."""
+    q = html.replace('\\"', '"').replace("\\u0026", "&").replace("\\u003c", "<").replace("\\u003e", ">")
+    i = q.find('"variants":[')
+    if i < 0:
+        return None
+    dec = json.JSONDecoder()
+    try:
+        arr, _ = dec.raw_decode(q, i + len('"variants":'))
+    except Exception:
+        return None
+    out = []
+    for v in arr if isinstance(arr, list) else []:
+        try:
+            out.append({"title": v.get("title") or "", "price": float(v["price"]["amount"]),
+                        "cur": v["price"].get("currencyCode"), "avail": bool(v.get("availableForSale", True))})
+        except Exception:
+            continue
+    title, text = None, ""
+    head = q[max(0, i - 20000):i]
+    m = list(re.finditer(r'"title":"([^"]{3,140})","description":', head))
+    if m:
+        title = m[-1].group(1)
+    m = list(re.finditer(r'"description":"((?:[^"\\]|\\.)*)"', head))
+    if m:
+        try:
+            text = json.loads('"' + m[-1].group(1) + '"')
+        except Exception:
+            text = m[-1].group(1)
+        # plain-text descriptions run labels together ("74158Processing: Washed") – break before each label
+        text = re.sub(r"(?<=[a-z0-9)])(?=[A-Z][A-Za-z]+(?: [A-Z]?[a-z]+)?:)", "\n", text)
+    return {"variants": out, "title": title, "text": text} if out else None
+
 def jsonld_products(html):
     out = []
     for m in re.finditer(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', html, re.S | re.I):
@@ -228,6 +309,15 @@ def scrape_html(r):
                 lab = " ".join(filter(None, [of.get("name"), of.get("_name"), of.get("sku")]))
                 g = grams_in(lab) or grams_in(title) or grams_in(text[:400])
                 sizes.append((g, price, "InStock" in str(of.get("availability", "InStock")), lab))
+        if not sizes:
+            hv = hydrogen_variants(h)
+            if hv:
+                title = title or hv["title"]
+                if hv["text"] and len(hv["text"]) > len(text):
+                    text = hv["text"]
+                for v in hv["variants"]:
+                    sizes.append((grams_in(v["title"]) or grams_in(title), v["price"], v["avail"], v["title"]))
+                    cur = v["cur"] or cur
         if not title:
             title = meta(h, "og:title") or (re.search(r"<title>(.*?)</title>", h, re.S | re.I) or [None, ""])[1]
             title = html_text(title).split("|")[0].strip()
@@ -326,6 +416,7 @@ def main(only=None):
                 it["p100"] = round(it["cny"] / it["grams"] * 100, 2) if it.get("grams") else None
             else:
                 it["cny"] = it.get("cny"); it["p100"] = it.get("p100")
+        items = [it for it in items if it.get("price") and (it.get("p100") is None or it["p100"] >= 8)]
         all_items += items
         status.append({**{k: r.get(k) for k in ("id", "name", "rank", "city", "country", "country_en", "region", "note", "note_en", "base")},
                        "count": len(items), "error": err, "secs": round(time.time() - t0, 1)})
