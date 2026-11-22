@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
   group: scrape
@@ -18,7 +17,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,14 +25,9 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python scraper/scrape.py
-      - name: Bilingual intros (GitHub Models, free tier)
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scraper/translate.py 120
       - name: Commit if the menu changed
         run: |
           git config user.name "bean-menu-bot"
           git config user.email "bean-menu-bot@users.noreply.github.com"
-          git add docs/data/menu.json docs/data/tr.json
-          if git diff --cached --quiet; then echo "no change"; else git commit -m "menu: $(date -u +'%Y-%m-%d %H:%M') UTC" && git push; fi
+          git add docs/data/menu.json
+          if git diff --cached --quiet; then echo "no change"; else git commit -m "menu: $(date -u +'%Y-%m-%d %H:%M') UTC" && (git push || (git pull --rebase -X theirs && git push)); fi

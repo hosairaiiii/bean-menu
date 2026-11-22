@@ -38,6 +38,7 @@ def call(batch, token):
     payload = {
         "model": MODEL,
         "temperature": 0.2,
+        "max_tokens": 4000,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": SYSTEM},
@@ -47,11 +48,17 @@ def call(batch, token):
     r = requests.post(URL, json=payload, timeout=120,
                       headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     if r.status_code == 429:
-        raise RuntimeError("quota")
-    r.raise_for_status()
-    txt = r.json()["choices"][0]["message"]["content"]
-    txt = re.sub(r"^```(?:json)?|```$", "", txt.strip())
-    return json.loads(txt)
+        raise RuntimeError("quota: " + r.text[:200])
+    if r.status_code >= 400:
+        raise ValueError(f"HTTP {r.status_code}: {r.text[:300]}")
+    try:
+        txt = r.json()["choices"][0]["message"]["content"] or ""
+    except Exception:
+        raise ValueError(f"bad response ({r.status_code}, {r.headers.get('content-type')}): {r.text[:300]!r}")
+    m = re.search(r"\{.*\}", txt, re.S)
+    if not m:
+        raise ValueError("no JSON in reply: " + txt[:200])
+    return json.loads(m.group(0))
 
 def main():
     token = os.environ.get("GITHUB_TOKEN")
@@ -68,7 +75,7 @@ def main():
             todo.append((k, it))
     # in-stock first, then newest
     todo.sort(key=lambda kv: (not kv[1].get("avail"), kv[1].get("first_seen") or ""), reverse=False)
-    print(f"{len(todo)} to translate, {len(tr)} cached")
+    print(f"{len(todo)} to translate, {len(tr)} cached", flush=True)
     req, done, i = 0, 0, 0
     while i < len(todo) and req < MAX_REQ:
         batch, size = {}, 0
@@ -81,10 +88,15 @@ def main():
             batch[k] = entry; size += n; i += 1
         try:
             out = call(batch, token)
-        except RuntimeError:
-            print("quota reached"); break
+            fails = 0
+        except RuntimeError as e:
+            print("quota reached:", e, flush=True); break
         except Exception as e:
-            print("batch failed:", str(e)[:200]); req += 1; time.sleep(5); continue
+            fails = locals().get("fails", 0) + 1
+            print("batch failed:", str(e)[:400], flush=True); req += 1
+            if fails >= 3:
+                print("giving up for this run", flush=True); break
+            time.sleep(5); continue
         req += 1
         for k in batch:
             v = out.get(k)

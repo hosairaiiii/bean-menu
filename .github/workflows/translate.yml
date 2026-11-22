@@ -1,0 +1,38 @@
+name: Translate intros
+
+# Short bilingual intros via GitHub Models (free tier ≈150 requests/day for small models).
+# Runs every 2 hours with a small budget so the daily quota is spread out; cached in docs/data/tr.json.
+on:
+  schedule:
+    - cron: "41 */2 * * *"
+  workflow_dispatch:
+  push:
+    paths: ["scraper/translate.py", ".github/workflows/translate.yml"]
+
+permissions:
+  contents: write
+  models: read
+
+concurrency:
+  group: translate
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scraper/translate.py 12
+      - name: Commit translations
+        run: |
+          git config user.name "bean-menu-bot"
+          git config user.email "bean-menu-bot@users.noreply.github.com"
+          git add docs/data/tr.json
+          if git diff --cached --quiet; then echo "no change"; else git commit -m "intros: $(date -u +'%Y-%m-%d %H:%M') UTC" && (git push || (git pull --rebase -X theirs && git push)); fi

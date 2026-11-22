@@ -187,7 +187,7 @@ const RC=()=>CUR==='local'?'EUR':CUR;                       /* currency used for
 const conv=(v,from,to)=>{const fx=D&&D.rates;if(v==null||!fx||!fx[from]||!fx[to])return null;return v/fx[from]*fx[to];};
 const pv=i=>i.grams&&i.price!=null?conv(i.price/i.grams*100,i.cur,RC()):null;  /* per 100 g, comparable */
 const priceOut=i=>CUR==='local'?money(i.price,i.cur):money(conv(i.price,i.cur,CUR),CUR);
-const p100Out=i=>{if(!i.grams||i.price==null)return '—';if(CUR==='local')return money(i.price/i.grams*100,i.cur);const v=pv(i);return v==null?'—':(SYM[CUR]||'')+(CUR==='JPY'?Math.round(v):Math.round(v));};
+const p100Out=i=>{if(!i.grams||i.price==null)return '—';if(CUR==='local')return money(i.price/i.grams*100,i.cur);const v=pv(i);return v==null?'—':CUR==='CNY'?yuan(v):money(v,CUR);};
 let TR={};
 const trOf=i=>TR[i.tk]||null;
 const notesOf=i=>{const x=trOf(i);return LANG==='zh'&&x&&x.notes_zh&&x.notes_zh.length?x.notes_zh:(i.notes||[]);};
