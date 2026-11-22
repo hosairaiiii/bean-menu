@@ -215,6 +215,8 @@ def split_notes(s):
         p = re.sub(r"^(?:a|an|the|some|hints? of|notes? of)\s+", "", p, flags=re.I)
         p = re.split(r"\s+(?:roasted|whole bean|ristede)\b", p, flags=re.I)[0].strip()
         p = re.sub(r"^with (?:an? |some )?|\s+(?:finish|aftertaste|body|notes?)$|!+$", "", p, flags=re.I).strip()
+        if re.match(r"(?:when|it|it's|we|this|our|you|they|there|which|while)\b", p, re.I):
+            continue
         if len(p.split()) > 3 or re.search(r"\b(?:cup|orders?|shipping|placed|if any|qualities|carried)\b", p, re.I):
             continue
         p = re.sub(r"^(?:de|d’|d'|du|des|la|le|les)\s*", "", p, flags=re.I) if re.match(r"(?:de|d’|d'|du|des)\b|d[’']", p, re.I) else p
@@ -240,7 +242,7 @@ def find_notes(text, title=""):
         n = split_notes(m.group(1))
         if n:
             return n
-    v = labelled(text, r"taste description", r"flavou?r notes?", r"tasting notes?", r"cup notes?", r"notes?", r"flavou?rs?", r"taste", r"in the cup", r"we taste", r"tastes like")
+    v = labelled(text, r"taste description", r"geschmacks?(?:noten|profil)?", r"aromen", r"notas de cata", r"notas", r"note di degustazione", r"note aromatiche", r"maku(?:profiili)?", r"nuty smakowe", r"profil smakowy", r"smaksnoter", r"smaksprofil", r"flavou?r notes?", r"tasting notes?", r"cup notes?", r"notes?", r"flavou?rs?", r"taste", r"in the cup", r"we taste", r"tastes like")
     if v:
         n = split_notes(v)
         if n:
@@ -281,6 +283,36 @@ FLAVOR_LEX = [
     ("vanille", "Vanilla"), ("nougat", "Nougat"), ("praliné", "Praline"), ("noisette", "Hazelnut"), ("amande", "Almond"), ("noix", "Walnut"),
     ("cannelle", "Cinnamon"), ("épices", "Spice"), ("cardamome", "Cardamom"), ("gingembre", "Ginger"), ("réglisse", "Liquorice"),
     ("vin rouge", "Red wine"), ("rhum", "Rum"), ("whisky", "Whisky"), ("biscuit", "Biscuit"), ("beurre", "Butter"),
+    # German
+    ("schwarzer tee", "Black tea"), ("grüner tee", "Green tea"), ("bergamotte", "Bergamot"), ("jasmin", "Jasmine"), ("holunderblüte", "Elderflower"),
+    ("orangenblüte", "Orange blossom"), ("zitrone", "Lemon"), ("limette", "Lime"), ("grapefruit", "Grapefruit"), ("mandarine", "Mandarin"),
+    ("pfirsich", "Peach"), ("aprikose", "Apricot"), ("pflaume", "Plum"), ("kirsche", "Cherry"), ("himbeere", "Raspberry"), ("erdbeere", "Strawberry"),
+    ("brombeere", "Blackberry"), ("blaubeere", "Blueberry"), ("heidelbeere", "Blueberry"), ("johannisbeere", "Currant"), ("traube", "Grape"),
+    ("apfel", "Apple"), ("birne", "Pear"), ("ananas", "Pineapple"), ("maracuja", "Passion fruit"), ("feige", "Fig"), ("rosine", "Raisin"),
+    ("zartbitterschokolade", "Dark chocolate"), ("milchschokolade", "Milk chocolate"), ("schokolade", "Chocolate"), ("kakao", "Cocoa"),
+    ("karamell", "Caramel"), ("honig", "Honey"), ("rohrzucker", "Cane sugar"), ("brauner zucker", "Brown sugar"), ("vanille", "Vanilla"),
+    ("haselnuss", "Hazelnut"), ("mandel", "Almond"), ("walnuss", "Walnut"), ("zimt", "Cinnamon"), ("gewürze", "Spice"), ("rotwein", "Red wine"),
+    # Spanish / Italian
+    ("té negro", "Black tea"), ("tè nero", "Black tea"), ("jazmín", "Jasmine"), ("gelsomino", "Jasmine"), ("bergamota", "Bergamot"), ("bergamotto", "Bergamot"),
+    ("limón", "Lemon"), ("limone", "Lemon"), ("lima", "Lime"), ("naranja", "Orange"), ("arancia", "Orange"), ("mandarina", "Mandarin"), ("mandarino", "Mandarin"),
+    ("pomelo", "Grapefruit"), ("pompelmo", "Grapefruit"), ("melocotón", "Peach"), ("durazno", "Peach"), ("pesca", "Peach"), ("albaricoque", "Apricot"),
+    ("albicocca", "Apricot"), ("ciruela", "Plum"), ("prugna", "Plum"), ("cereza", "Cherry"), ("ciliegia", "Cherry"), ("frambuesa", "Raspberry"),
+    ("lampone", "Raspberry"), ("fresa", "Strawberry"), ("fragola", "Strawberry"), ("mora", "Blackberry"), ("arándano", "Blueberry"), ("mirtillo", "Blueberry"),
+    ("uva", "Grape"), ("manzana", "Apple"), ("mela", "Apple"), ("pera", "Pear"), ("piña", "Pineapple"), ("maracuyá", "Passion fruit"), ("mango", "Mango"),
+    ("chocolate negro", "Dark chocolate"), ("cioccolato fondente", "Dark chocolate"), ("cioccolato al latte", "Milk chocolate"), ("cioccolato", "Chocolate"),
+    ("cacao", "Cocoa"), ("caramelo", "Caramel"), ("miel", "Honey"), ("miele", "Honey"), ("panela", "Panela"), ("azúcar moreno", "Brown sugar"),
+    ("zucchero di canna", "Cane sugar"), ("vainilla", "Vanilla"), ("vaniglia", "Vanilla"), ("avellana", "Hazelnut"), ("nocciola", "Hazelnut"),
+    ("almendra", "Almond"), ("mandorla", "Almond"), ("canela", "Cinnamon"), ("cannella", "Cinnamon"), ("vino tinto", "Red wine"), ("floral", "Floral"),
+    # English (for prose without labels)
+    ("black tea", "Black tea"), ("green tea", "Green tea"), ("earl grey", "Earl Grey"), ("bergamot", "Bergamot"), ("jasmine", "Jasmine"),
+    ("orange blossom", "Orange blossom"), ("elderflower", "Elderflower"), ("hibiscus", "Hibiscus"), ("lemon", "Lemon"), ("lime", "Lime"),
+    ("grapefruit", "Grapefruit"), ("mandarin", "Mandarin"), ("tangerine", "Tangerine"), ("peach", "Peach"), ("apricot", "Apricot"),
+    ("nectarine", "Nectarine"), ("plum", "Plum"), ("cherry", "Cherry"), ("raspberry", "Raspberry"), ("strawberry", "Strawberry"),
+    ("blackberry", "Blackberry"), ("blueberry", "Blueberry"), ("blackcurrant", "Blackcurrant"), ("redcurrant", "Redcurrant"), ("grape", "Grape"),
+    ("apple", "Apple"), ("pear", "Pear"), ("pineapple", "Pineapple"), ("mango", "Mango"), ("passion fruit", "Passion fruit"), ("lychee", "Lychee"),
+    ("dark chocolate", "Dark chocolate"), ("milk chocolate", "Milk chocolate"), ("chocolate", "Chocolate"), ("cocoa", "Cocoa"), ("caramel", "Caramel"),
+    ("toffee", "Toffee"), ("honey", "Honey"), ("brown sugar", "Brown sugar"), ("molasses", "Molasses"), ("vanilla", "Vanilla"),
+    ("hazelnut", "Hazelnut"), ("almond", "Almond"), ("cinnamon", "Cinnamon"),
 ]
 _lex = [(re.compile(r"(?<![a-zà-ÿ])" + fr + r"s?(?![a-zà-ÿ])", re.I), en) for fr, en in FLAVOR_LEX]
 _lex_full = [(re.compile(r"^(?:notes? )?(?:de |d’|d')?" + fr + r"s?$", re.I), en) for fr, en in FLAVOR_LEX]

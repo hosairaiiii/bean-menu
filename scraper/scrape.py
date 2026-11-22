@@ -89,12 +89,14 @@ def scrape_shopify(r):
     link = (r.get("link_base") or base).rstrip("/")
     items, page = [], 1
     while page <= 6:
-        j = get(s, f"{base}/products.json", params={"limit": 250, "page": page}).json()
+        j = get(s, f"{(r.get('json_base') or base).rstrip('/')}/products.json", params={"limit": 250, "page": page}).json()
         prods = j.get("products", [])
         if not prods:
             break
         for p in prods:
             text = html_text(p.get("body_html"))
+            if r.get("title_re") and not re.search(r["title_re"], p["title"], re.I):
+                continue
             if not is_coffee(p["title"], p.get("product_type", ""), p.get("tags", []), text[:200]):
                 continue
             tags = p.get("tags", [])
@@ -418,7 +420,7 @@ def main(only=None):
                 it["cny"] = it.get("cny"); it["p100"] = it.get("p100")
         items = [it for it in items if it.get("price") and (it.get("p100") is None or it["p100"] >= 8)]
         all_items += items
-        status.append({**{k: r.get(k) for k in ("id", "name", "rank", "city", "country", "country_en", "region", "note", "note_en", "base")},
+        status.append({**{k: r.get(k) for k in ("id", "name", "rank", "list", "city", "country", "country_en", "region", "note", "note_en", "base")},
                        "count": len(items), "error": err, "secs": round(time.time() - t0, 1)})
         print(f"{r['id']:<18} {len(items):>3} items  {('ERR ' + err) if err else ''}", flush=True)
     if only and old:

@@ -111,6 +111,7 @@ dl.dl dd{margin:0}
 <body>
 <header class="top">
   <div class="seg-tabs" id="regionTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="all"></button><button type="button" data-v="europe" aria-pressed="false" data-t="europe"></button><button type="button" data-v="other" aria-pressed="false" data-t="other"></button></div>
+  <div class="seg-tabs" id="listTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="lAll"></button><button type="button" data-v="top" aria-pressed="false" data-t="lTop"></button><button type="button" data-v="pick" aria-pressed="false" data-t="lPick"></button></div>
   <span class="upd" id="upd"></span>
   <div class="seg-tabs" id="langTabs" role="group" aria-label="Language"><button type="button" data-l="zh" aria-pressed="true">中</button><button type="button" data-l="en" aria-pressed="false">EN</button></div>
 </header>
@@ -140,13 +141,13 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 let LANG=store.get('bm-lang','zh');
 const UI={
- zh:{all:'全部',europe:'欧洲',other:'其他地区',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
+ zh:{lAll:'全部烘焙商',lTop:'Top 30',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',other:'其他地区',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
   colName:'名称',colCountry:'产国',colProcess:'处理法',colVariety:'品种',colNotes:'风味',colSize:'规格',colPrice:'价格',colP:'每百克',
   items:n=>n+' 款',updated:'更新于',ago:{m:n=>n+' 分钟前',h:n=>n+' 小时前',d:n=>n+' 天前'},fP:'每百克价格',fAlt:'海拔',
   badgeNew:'上新',badgeHad:'喝过',badgeSold:'售罄',hadTip:'档案里有同一庄园或生产者：',failed:'这次没抓到，显示的是上一次的结果',none:'这家目前没有在售的豆子，或抓取失败',
   producer:'生产者',farm:'庄园 / 处理站',region:'产区',alt:'海拔',variety:'品种',process:'处理法',sizes:'规格',buy:'去官网 ↗',add:'加入待买',remove:'移出待买',
   short:'待买',shortN:n=>'待买 '+n,shortEmpty:'还没有加入任何豆子。',close:'关闭',site:'官网',blend:'拼配',unknown:'未注明',noMatch:'没有符合条件的豆子。',decaf:'低因',fx:'按当天欧洲央行汇率换算'},
- en:{all:'All',europe:'Europe',other:'Elsewhere',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
+ en:{lAll:'All roasters',lTop:'Top 30',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',other:'Elsewhere',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
   colName:'Name',colCountry:'Origin',colProcess:'Process',colVariety:'Variety',colNotes:'Notes',colSize:'Size',colPrice:'Price',colP:'per 100 g',
   items:n=>n+(n===1?' coffee':' coffees'),updated:'Updated',ago:{m:n=>n+' min ago',h:n=>n+' h ago',d:n=>n+' d ago'},fP:'Price per 100 g',fAlt:'Altitude',
   badgeNew:'new',badgeHad:'had',badgeSold:'sold out',hadTip:'Same farm or producer in your archive: ',failed:'Not reached this time — showing the previous list',none:'Nothing on sale right now, or the site could not be read',
@@ -215,7 +216,7 @@ function ruler(el,cfg){
 
 
 let D=null, HAD=[], R=new Map(), FB=null, FR={}, sig='';
-let region=store.get('bm-region','all'), kind='all', gBy='roaster', fStock=true, fNew=false, fHad=false, sortK='', sortDir=1, openId=null;
+let region=store.get('bm-region','all'), listV=store.get('bm-list','all'), kind='all', gBy='roaster', fStock=true, fNew=false, fHad=false, sortK='', sortDir=1, openId=null;
 let SHORT=store.get('bm-short',[]);
 const isNew=i=>D&&(Date.parse(D.updated)-Date.parse(i.first_seen))<8*864e5&&i.first_seen>(D.firstRun||'');
 /* "had" = a farm / producer / lot name from the archive appears in this coffee */
@@ -247,6 +248,7 @@ function filtered(){
   const q=$('#q').value.trim().toLowerCase();
   return D.items.filter(i=>{const r=R.get(i.roaster);if(!r)return false;
     if(region!=='all'&&r.region!==region)return false;
+    if(listV!=='all'&&(r.list||'top')!==listV)return false;
     if(kind!=='all'&&i.kind&&i.kind.length&&!i.kind.includes(kind)&&!i.kind.includes('omni'))return false;
     if(fStock&&!i.avail)return false;
     if(fNew&&!isNew(i))return false;
@@ -291,9 +293,9 @@ function render(){
   const list=$('#list');
   let html=headHTML();
   if(gBy==='roaster'){
-    const order=D.roasters.filter(r=>region==='all'||r.region===region);
+    const order=D.roasters.filter(r=>(region==='all'||r.region===region)&&(listV==='all'||(r.list||'top')===listV));
     order.forEach(r=>{const its=L.filter(i=>i.roaster===r.id);const filt=its.length===0&&D.items.some(i=>i.roaster===r.id);if(filt)return;
-      html+=`<div class="rg"><span class="rk">№ ${esc(r.rank)}</span><h3>${esc(r.name)}</h3><span class="rm">${esc(r.city)} · ${esc(LANG==='zh'?r.country:r.country_en)}${r.note?' · '+esc(LANG==='zh'?r.note:r.note_en):''} · <a href="${esc(r.base)}" target="_blank" rel="noopener">${t('site')} ↗</a></span>${r.error?`<span class="warn">${t('failed')}</span>`:''}</div>`;
+      html+=`<div class="rg"><span class="rk">${r.rank?'№ '+esc(r.rank):t('pick')}</span><h3>${esc(r.name)}</h3><span class="rm">${esc(r.city)} · ${esc(LANG==='zh'?r.country:r.country_en)}${r.note?' · '+esc(LANG==='zh'?r.note:r.note_en):''} · <a href="${esc(r.base)}" target="_blank" rel="noopener">${t('site')} ↗</a></span>${r.error?`<span class="warn">${t('failed')}</span>`:''}</div>`;
       html+=its.length?its.map(rowHTML).join(''):`<p class="empty">${t('none')}</p>`;});
   }else if(gBy==='country'){
     const g=new Map();L.forEach(i=>{const k=i.blend?t('blend'):(cty(i.country)||t('unknown'));if(!g.has(k))g.set(k,[]);g.get(k).push(i);});
@@ -323,11 +325,13 @@ function applyStatic(){
   $('#q').placeholder=t('search');
   $$('#langTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===LANG));
   $$('#regionTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===region));
+  $$('#listTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===listV));
   if(D)$('#upd').textContent=t('updated')+' '+ago(D.updated);
 }
 function wire(){
   const seg=(id,fn)=>$$(id+' button').forEach(b=>b.onclick=()=>{$$(id+' button').forEach(x=>x.setAttribute('aria-pressed',x===b));fn(b);render();});
   seg('#regionTabs',b=>{region=b.dataset.v;store.set('bm-region',region);});
+  seg('#listTabs',b=>{listV=b.dataset.v;store.set('bm-list',listV);});
   seg('#kindTabs',b=>{kind=b.dataset.v;});
   seg('#groupTabs',b=>{gBy=b.dataset.g;});
   $$('#langTabs button').forEach(b=>b.onclick=()=>{LANG=b.dataset.l;store.set('bm-lang',LANG);sig='';applyStatic();render();});
