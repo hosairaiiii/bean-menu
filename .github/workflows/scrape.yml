@@ -1,0 +1,33 @@
+name: Update bean menu
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6 hours
+  workflow_dispatch:          # "Run workflow" button
+  push:
+    paths: ["scraper/**", "roasters.json", ".github/workflows/scrape.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python scraper/scrape.py
+      - name: Commit if the menu changed
+        run: |
+          git config user.name "bean-menu-bot"
+          git config user.email "bean-menu-bot@users.noreply.github.com"
+          git add docs/data/menu.json
+          if git diff --cached --quiet; then echo "no change"; else git commit -m "menu: $(date -u +'%Y-%m-%d %H:%M') UTC" && git push; fi

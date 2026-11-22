@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>豆单 · Bean menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fragment+Mono&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;
+--bg:light-dark(#fafaf8,#0d0d0c);--ink:light-dark(#121211,#ecebe7);--ink2:light-dark(#77756f,#8d8b85);
+--line:light-dark(#d9d7d1,#2b2a28);--soft:light-dark(#efeeea,#1a1a18);--acc:light-dark(#b3261e,#e5574c);
+--serif:"Newsreader","PingFang SC","Noto Sans SC",serif;--mono:"Fragment Mono","PingFang SC","Noto Sans SC",ui-monospace,monospace;
+--cjk:"PingFang SC","Noto Sans SC","Hiragino Sans GB",sans-serif}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--serif);overflow-x:clip;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:1.5px solid var(--acc);outline-offset:2px}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px max(5vw,16px);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .upd{margin-right:auto;font-family:var(--mono);font-size:12px;color:var(--ink2)}
+.seg-tabs{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--bg)}
+.seg-tabs button{border:0;background:none;border-radius:999px;padding:6px 12px;min-height:34px;font-family:var(--mono);font-size:13px;color:var(--ink2);white-space:nowrap}
+.seg-tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+main{padding:0 max(5vw,16px) 120px}
+.ctl{margin:40px 0 6px}
+.ctl-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.ctl-row input[type=search]{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 16px;min-height:42px;font-family:var(--mono);font-size:15px;flex:1 1 220px;max-width:320px}
+.chk{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;min-height:40px;cursor:pointer;user-select:none;background:none}
+.chk[aria-pressed=true]{color:var(--ink);border-color:var(--ink)}
+.chk i{width:7px;height:7px;border-radius:50%;border:1px solid currentColor}
+.chk[aria-pressed=true] i{background:var(--acc);border-color:var(--acc)}
+.ghost{border:0;background:none;font-family:var(--mono);font-size:12.5px;color:var(--ink2);padding:8px 6px;text-decoration:underline;text-underline-offset:3px}
+.ghost[hidden]{display:none}
+#count{font-family:var(--mono);font-size:13px;color:var(--ink2);margin:26px 0 0}
+.scrubs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 44px;margin-top:28px}
+.scrub-h{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:12px;color:var(--ink2)}
+.scrub-h b{font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums}
+.track,.dial{position:relative;height:44px;touch-action:none;cursor:ew-resize;user-select:none;-webkit-user-select:none}
+.track .base,.dial .base{position:absolute;left:0;right:0;bottom:18px;height:1px;background:var(--line)}
+.tk{position:absolute;bottom:18px;width:1px;height:5px;background:var(--line);transform:translateX(-.5px);transition:background .3s ease,height .3s ease}
+.tk.mj{height:11px}
+.tk.in{background:var(--ink)}
+.tl.l0{transform:none}.tl.l1{transform:translateX(-100%)}
+.tl{position:absolute;bottom:0;transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:nowrap;pointer-events:none}
+.sel{position:absolute;bottom:18px;height:1px;background:var(--ink);transition:left .55s cubic-bezier(.34,1.56,.64,1),width .55s cubic-bezier(.34,1.56,.64,1)}
+.knob{position:absolute;bottom:12px;width:20px;height:30px;margin-left:-10px;border:0;background:none;padding:0;cursor:grab;transition:left .55s cubic-bezier(.34,1.56,.64,1)}
+.knob::before{content:"";position:absolute;left:9.25px;top:8px;bottom:0;width:1.5px;background:var(--ink)}
+.knob::after{content:"";position:absolute;left:6px;top:0;width:8px;height:8px;background:var(--ink);border-radius:1px;transition:transform .25s ease}
+.knob:hover::after,.knob:focus-visible::after{transform:scale(1.25)}
+.knob:focus-visible{outline:none}.knob:focus-visible::before{background:var(--acc)}
+.dial .knob::before,.dial .knob::after{background:var(--acc)}
+.track.drag .knob,.track.drag .sel,.dial.drag .knob{transition:none;cursor:grabbing}
+.dial.unset .knob{opacity:0}
+.rate-top{display:flex;justify-content:space-between;align-items:baseline}
+.rate-top output{font-family:var(--serif);font-size:34px;color:var(--ink);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.sel,.knob{transition:none}}
+
+.ix{--cols:minmax(0,2.2fr) minmax(0,.9fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.8fr) 70px 92px 64px 30px}
+.ix-h,.ix-r{display:grid;grid-template-columns:var(--cols);gap:0 16px;align-items:baseline}
+.ix-h{position:sticky;top:69px;z-index:5;background:var(--bg);font-family:var(--mono);font-size:11.5px;color:var(--ink2);padding:14px 0 9px;border-bottom:1px solid var(--ink)}
+.ix-h span,.ix-h button{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;white-space:nowrap}
+.ix-h button{cursor:pointer}.ix-h button.on,.ix-h button:hover{color:var(--ink)}
+.r{text-align:right}
+.rg{padding:52px 0 8px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.rg .rk{font-family:var(--mono);font-size:12px;color:var(--ink2);min-width:3.2em}
+.rg h3{font-weight:300;font-size:30px;margin:0;line-height:1.1}
+.rg .rm{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+.rg .rm a{color:var(--ink2)}
+.rg .warn{font-family:var(--mono);font-size:12px;color:var(--acc)}
+.ix-r{width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:15px 0 12px;text-align:left;cursor:pointer;font:inherit;color:var(--ink);position:relative}
+.ix-r::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--ink);transform:scaleX(0);transform-origin:0 50%;transition:transform .5s cubic-bezier(.22,1,.36,1)}
+.ix-r:hover::after,.ix-r.open::after{transform:scaleX(1)}
+.ix-r.out{color:var(--ink2)}
+.ix-r .c{font-family:var(--mono);font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.ix-r .nt{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ix-r .t{display:block;font-family:var(--serif);font-size:20px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .45s cubic-bezier(.22,1,.36,1)}
+.ix-r:hover .t,.ix-r.open .t{transform:translateX(6px)}
+.badge{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;border:1px solid currentColor;border-radius:999px;padding:0 6px;margin-left:8px;vertical-align:3px;line-height:16px}
+.badge.new{color:var(--acc)}.badge.had{color:var(--ink)}.badge.so{color:var(--ink2)}
+.ix-r .sub{display:none;font-family:var(--mono);font-size:11.5px;color:var(--ink2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.star{border:0;background:none;padding:0;font-size:17px;line-height:1;color:var(--ink2);text-align:right}
+.star[aria-pressed=true]{color:var(--acc)}
+.ix-x{display:grid;grid-template-rows:0fr;transition:grid-template-rows .55s cubic-bezier(.22,1,.36,1)}
+.ix-x.open{grid-template-rows:1fr}
+.ix-xi{overflow:hidden;min-height:0}
+.ix-xc{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:36px;padding:24px 0 34px;border-bottom:1px solid var(--line)}
+.ix-xc p{margin:0 0 12px;font-size:15.5px;max-width:62ch}
+dl.dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0;font-size:14.5px}
+dl.dl dt{font-family:var(--mono);font-size:12px;color:var(--ink2);padding-top:2px}
+dl.dl dd{margin:0}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.btn{border:1px solid var(--line);background:none;padding:8px 14px;min-height:40px;border-radius:999px;font-size:13px;font-family:var(--mono);text-decoration:none;display:inline-flex;align-items:center}
+.btn.solid{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.empty{font-family:var(--mono);font-size:13px;color:var(--ink2);padding:40px 0}
+#shortBtn{position:fixed;right:max(5vw,16px);bottom:24px;z-index:25;background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:10px 18px;min-height:44px;font-family:var(--mono);font-size:13px;box-shadow:0 8px 24px -12px rgba(0,0,0,.5)}
+#shortBtn[hidden]{display:none}
+#short{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--bg);border-left:1px solid var(--line);z-index:40;transform:translateX(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);padding:24px 26px;overflow:auto}
+#short.on{transform:none}
+#short h2{font-weight:300;font-size:32px;margin:6px 0 18px}
+.srow{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.srow .st{font-size:17px}.srow .sm{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.srow button{border:0;background:none;font-family:var(--mono);font-size:12px;color:var(--ink2);text-decoration:underline}
+#scrim{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 25%,transparent);opacity:0;pointer-events:none;transition:opacity .3s;z-index:35}
+#scrim.on{opacity:1;pointer-events:auto}
+@media (max-width:900px){.ix{--cols:minmax(0,1fr) 84px 30px !important}.ix .hm{display:none}.ix-r .sub{display:block}.ix-xc{grid-template-columns:1fr;gap:18px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="seg-tabs" id="regionTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="all"></button><button type="button" data-v="europe" aria-pressed="false" data-t="europe"></button><button type="button" data-v="other" aria-pressed="false" data-t="other"></button></div>
+  <span class="upd" id="upd"></span>
+  <div class="seg-tabs" id="langTabs" role="group" aria-label="Language"><button type="button" data-l="zh" aria-pressed="true">中</button><button type="button" data-l="en" aria-pressed="false">EN</button></div>
+</header>
+<main>
+  <div class="ctl">
+    <div class="ctl-row">
+      <input id="q" type="search" aria-label="Search">
+      <div class="seg-tabs" id="kindTabs" role="group"><button type="button" data-v="all" aria-pressed="true" data-t="kAll"></button><button type="button" data-v="filter" aria-pressed="false" data-t="kFilter"></button><button type="button" data-v="espresso" aria-pressed="false" data-t="kEspresso"></button></div>
+      <div class="seg-tabs" id="groupTabs" role="group"><button type="button" data-g="roaster" aria-pressed="true" data-t="gRoaster"></button><button type="button" data-g="country" aria-pressed="false" data-t="gCountry"></button><button type="button" data-g="none" aria-pressed="false" data-t="gNone"></button></div>
+      <button type="button" class="chk" id="fStock" aria-pressed="true"><i></i><span data-t="inStock"></span></button>
+      <button type="button" class="chk" id="fNew" aria-pressed="false"><i></i><span data-t="onlyNew"></span></button>
+      <button type="button" class="chk" id="fHad" aria-pressed="false"><i></i><span data-t="hideHad"></span></button>
+      <button type="button" class="ghost" id="resetF" data-t="reset" hidden></button>
+    </div>
+    <div class="scrubs" id="scrubs"></div>
+  </div>
+  <p id="count"></p>
+  <div class="ix" id="list"></div>
+</main>
+<button type="button" id="shortBtn" hidden></button>
+<div id="scrim"></div>
+<aside id="short" aria-label="Shortlist"></aside>
+<script>
+(()=>{
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+let LANG=store.get('bm-lang','zh');
+const UI={
+ zh:{all:'全部',europe:'欧洲',other:'其他地区',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
+  colName:'名称',colCountry:'产国',colProcess:'处理法',colVariety:'品种',colNotes:'风味',colSize:'规格',colPrice:'价格',colP:'每百克',
+  items:n=>n+' 款',updated:'更新于',ago:{m:n=>n+' 分钟前',h:n=>n+' 小时前',d:n=>n+' 天前'},fP:'每百克价格',fAlt:'海拔',
+  badgeNew:'上新',badgeHad:'喝过',badgeSold:'售罄',hadTip:'档案里有同一庄园或生产者：',failed:'这次没抓到，显示的是上一次的结果',none:'这家目前没有在售的豆子，或抓取失败',
+  producer:'生产者',farm:'庄园 / 处理站',region:'产区',alt:'海拔',variety:'品种',process:'处理法',sizes:'规格',buy:'去官网 ↗',add:'加入待买',remove:'移出待买',
+  short:'待买',shortN:n=>'待买 '+n,shortEmpty:'还没有加入任何豆子。',close:'关闭',site:'官网',blend:'拼配',unknown:'未注明',noMatch:'没有符合条件的豆子。',decaf:'低因',fx:'按当天欧洲央行汇率换算'},
+ en:{all:'All',europe:'Europe',other:'Elsewhere',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
+  colName:'Name',colCountry:'Origin',colProcess:'Process',colVariety:'Variety',colNotes:'Notes',colSize:'Size',colPrice:'Price',colP:'per 100 g',
+  items:n=>n+(n===1?' coffee':' coffees'),updated:'Updated',ago:{m:n=>n+' min ago',h:n=>n+' h ago',d:n=>n+' d ago'},fP:'Price per 100 g',fAlt:'Altitude',
+  badgeNew:'new',badgeHad:'had',badgeSold:'sold out',hadTip:'Same farm or producer in your archive: ',failed:'Not reached this time — showing the previous list',none:'Nothing on sale right now, or the site could not be read',
+  producer:'Producer',farm:'Farm / station',region:'Region',alt:'Altitude',variety:'Variety',process:'Process',sizes:'Sizes',buy:'Open shop ↗',add:'Add to list',remove:'Remove',
+  short:'To buy',shortN:n=>'To buy · '+n,shortEmpty:'Nothing added yet.',close:'Close',site:'site',blend:'Blend',unknown:'—',noMatch:'Nothing matches.',decaf:'decaf',fx:'converted at today’s ECB rates'}
+};
+const t=k=>UI[LANG][k];
+const ZH={
+ country:{'Ethiopia':'埃塞俄比亚','Kenya':'肯尼亚','Colombia':'哥伦比亚','Panama':'巴拿马','Costa Rica':'哥斯达黎加','Guatemala':'危地马拉','Honduras':'洪都拉斯','El Salvador':'萨尔瓦多','Nicaragua':'尼加拉瓜','Mexico':'墨西哥','Peru':'秘鲁','Bolivia':'玻利维亚','Ecuador':'厄瓜多尔','Brazil':'巴西','Rwanda':'卢旺达','Burundi':'布隆迪','Uganda':'乌干达','Tanzania':'坦桑尼亚','DR Congo':'刚果（金）','Malawi':'马拉维','Zambia':'赞比亚','Zimbabwe':'津巴布韦','Yemen':'也门','Indonesia':'印度尼西亚','China':'中国','Taiwan':'中国台湾','India':'印度','Myanmar':'缅甸','Thailand':'泰国','Laos':'老挝','Vietnam':'越南','Philippines':'菲律宾','Papua New Guinea':'巴布亚新几内亚','Jamaica':'牙买加','Hawaii':'夏威夷','Dominican Republic':'多米尼加','Haiti':'海地','Cuba':'古巴'},
+ process:[['Carbonic maceration','二氧化碳浸渍'],['Co-fermented','共发酵'],['Thermal shock','热冲击'],['Wet hulled','湿刨法'],['Semi-washed','半水洗'],['Pulped natural','去果皮日晒'],['Anaerobic natural','厌氧日晒'],['Anaerobic washed','厌氧水洗'],['Anaerobic honey','厌氧蜜处理'],['Anaerobic','厌氧'],['Honey','蜜处理'],['Natural','日晒'],['Washed','水洗'],['Decaf','低因']],
+ variety:{'Pink Bourbon':'粉波旁','Red Bourbon':'红波旁','Yellow Bourbon':'黄波旁','Striped Bourbon':'条纹波旁','Bourbon':'波旁','Geisha':'瑰夏','Sidra':'希爪','Typica':'铁皮卡','Caturra':'卡杜拉','Catuai':'卡图艾','Pacamara':'帕卡马拉','Pacas':'帕卡斯','Maragogype':'象豆','Mokka':'摩卡','Laurina':'劳瑞娜','Wush Wush':'乌舒乌舒','Java':'爪哇','Castillo':'卡斯蒂略','Colombia (var.)':'哥伦比亚种','Villa Sarchi':'维拉萨奇','Parainema':'帕拉伊内马','Catimor':'卡蒂莫','Sarchimor':'萨奇莫','Mundo Novo':'新世界','Chiroso':'奇罗索','Tabi':'塔比','Ruiru 11':'鲁伊鲁 11','Batian':'巴蒂安','Heirloom':'原生种','Bernardina':'贝尔纳迪娜','Eugenioides':'尤金诺伊德斯'}
+};
+const cty=c=>!c?null:(LANG==='zh'?(ZH.country[c]||c):c);
+const proc=p=>{if(!p)return null;if(LANG!=='zh')return p;let s=p;ZH.process.forEach(([a,b])=>{s=s.replace(new RegExp(a,'i'),b);});return s;};
+const vari=v=>LANG==='zh'?(ZH.variety[v]||v):v;
+const SYM={EUR:'€',USD:'$',GBP:'£',JPY:'¥',CNY:'¥',CHF:'CHF ',SEK:'SEK ',NOK:'NOK ',DKK:'DKK ',AUD:'A$',CAD:'C$',HKD:'HK$',AED:'AED ',KRW:'₩'};
+const money=(v,c)=>v==null?'—':(SYM[c]||(c?c+' ':''))+(c==='JPY'||c==='KRW'?Math.round(v).toLocaleString('en-US'):v.toFixed(2).replace(/\.00$/,''));
+const yuan=v=>v==null?'—':'¥'+Math.round(v).toLocaleString('en-US');
+
+function ruler(el,cfg){
+  const {min,max,step}=cfg, n=Math.round((max-min)/step), span=max-min||1;
+  const pct=v=>(v-min)/span*100;
+  let vals=cfg.values.slice();
+  el.innerHTML='<div class="base"></div>'
+    +Array.from({length:n+1},(_,i)=>{const v=min+i*step;return `<i class="tk${cfg.major(v)?' mj':''}" style="left:${pct(v)}%"></i>`;}).join('')
+    +(cfg.labels||[]).map(([v,l])=>`<span class="tl${v<=min?' l0':v>=max?' l1':''}" style="left:${pct(v)}%">${l}</span>`).join('')
+    +(vals.length===2?'<i class="sel"></i>':'')
+    +vals.map((v,k)=>`<button type="button" class="knob" data-k="${k}" role="slider" aria-label="${esc(cfg.aria[k]||'')}" aria-valuemin="${min}" aria-valuemax="${max}"></button>`).join('');
+  const knobs=[...el.querySelectorAll('.knob')], tks=[...el.querySelectorAll('.tk')], sel=el.querySelector('.sel');
+  const snap=v=>Math.min(max,Math.max(min,Math.round((v-min)/step)*step+min));
+  function paint(raw){
+    const show=raw||vals;
+    knobs.forEach((k,i)=>{k.style.left=pct(show[i])+'%';k.setAttribute('aria-valuenow',vals[i]);k.setAttribute('aria-valuetext',cfg.fmt(vals[i]));});
+    if(sel){const a=Math.min(...show),b=Math.max(...show);sel.style.left=pct(a)+'%';sel.style.width=(pct(b)-pct(a))+'%';}
+    const off=cfg.unset&&cfg.unset(), lo=vals.length===2?vals[0]:min, hi=vals.length===2?vals[1]:vals[0];
+    tks.forEach((tk,i)=>{const v=min+i*step;tk.classList.toggle('in',!off&&v>=lo-1e-9&&v<=hi+1e-9);});
+  }
+  const valAt=x=>{const r=el.getBoundingClientRect();return min+Math.min(1,Math.max(0,(x-r.left)/(r.width||1)))*span;};
+  let act=-1;
+  function setRaw(k,v){
+    if(vals.length===2){v=k===0?Math.min(v,vals[1]):Math.max(v,vals[0]);}
+    const raw=vals.slice(); raw[k]=v; const sv=snap(v);
+    if(sv!==vals[k]){vals[k]=sv;cfg.onInput(vals.slice());}
+    return raw;
+  }
+  el.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return; e.preventDefault();
+    const v=valAt(e.clientX);
+    act=vals.length===1?0:(Math.abs(v-vals[0])<Math.abs(v-vals[1])||(v<vals[0])?0:1);
+    el.setPointerCapture(e.pointerId); el.classList.add('drag'); knobs[act].focus({preventScroll:true});
+    paint(setRaw(act,v));
+  });
+  el.addEventListener('pointermove',e=>{if(act<0)return;paint(setRaw(act,valAt(e.clientX)));});
+  const end=()=>{if(act<0)return;act=-1;el.classList.remove('drag');requestAnimationFrame(()=>paint());};
+  el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end); el.addEventListener('lostpointercapture',end);
+  knobs.forEach(k=>k.addEventListener('keydown',e=>{
+    const i=+k.dataset.k, big=step*(cfg.bigStep||4);
+    const d={ArrowLeft:-step,ArrowDown:-step,ArrowRight:step,ArrowUp:step,PageDown:-big,PageUp:big}[e.key];
+    let v=null; if(d!=null)v=vals[i]+d; else if(e.key==='Home')v=min; else if(e.key==='End')v=max; else return;
+    e.preventDefault(); setRaw(i,snap(v)); paint();
+  }));
+  paint();
+  return {set(v){vals=v.slice();paint();},get:()=>vals.slice()};
+}
+
+
+
+let D=null, HAD=[], R=new Map(), FB=null, FR={}, sig='';
+let region=store.get('bm-region','all'), kind='all', gBy='roaster', fStock=true, fNew=false, fHad=false, sortK='', sortDir=1, openId=null;
+let SHORT=store.get('bm-short',[]);
+const isNew=i=>D&&(Date.parse(D.updated)-Date.parse(i.first_seen))<8*864e5&&i.first_seen>(D.firstRun||'');
+/* "had" = a farm / producer / lot name from the archive appears in this coffee */
+const GENERIC=/^(finca|hacienda|estate|farm|la|el|los|las|de|del|coffee|café|village|station|lot|washing|cafe|granja|santa|san|the)$/i;
+function hadKeys(){const K=new Map();HAD.forEach(b=>{[b.title,b.site,b.producer].forEach(v=>{if(!v||/[㐀-鿿]/.test(v))return;
+  const s=String(v).replace(/^(finca|hacienda|café granja)\s+/i,'').trim();if(s.length<3||GENERIC.test(s))return;if(s.length<4&&!/^alo$/i.test(s))return;K.set(s.toLowerCase(),b);});});return K;}
+let HK=new Map();
+function had(i){const hay=[i.title,i.farm,i.producer,i.desc].join(' ').toLowerCase();for(const [k,b] of HK){const re=new RegExp('(^|[^a-z])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-z]|$)');if(re.test(hay))return b;}return null;}
+
+function ago(iso){const m=Math.max(1,Math.round((Date.now()-Date.parse(iso))/6e4));const A=UI[LANG].ago;return m<60?A.m(m):m<2880?A.h(Math.round(m/60)):A.d(Math.round(m/1440));}
+
+function buildScrubs(){
+  const ps=D.items.map(i=>i.p100).filter(v=>v!=null).sort((a,b)=>a-b),as=D.items.map(i=>i.alt).filter(Boolean);
+  const B={};if(ps.length){const hi=ps[Math.floor(ps.length*.97)]||ps[ps.length-1];B.p100=[0,Math.ceil(hi/20)*20];}
+  if(as.length)B.alt=[Math.floor(Math.min(...as)/100)*100,Math.ceil(Math.max(...as)/100)*100];
+  const s=LANG+JSON.stringify(B);if(s===sig)return;sig=s;FB=B;
+  const C={p100:{l:'fP',step:10,major:v=>v%50===0,lab:(a,b)=>{const L=[];for(let v=a;v<=b;v+=Math.max(50,Math.round((b-a)/4/50)*50))L.push([v,'¥'+v]);return L;},read:(a,b)=>'¥'+a+' – ¥'+b+(b>=FB.p100[1]?'+':'')},
+           alt:{l:'fAlt',step:50,major:v=>v%200===0,lab:(a,b)=>{const L=[];for(let v=Math.ceil(a/400)*400;v<=b;v+=400)L.push([v,String(v)]);return L;},read:(a,b)=>a+' – '+b+' m'}};
+  const box=$('#scrubs');box.innerHTML='';
+  Object.keys(B).forEach(k=>{const c=C[k],[lo,hi]=B[k];FR[k]=FR[k]?[Math.max(lo,FR[k][0]),Math.min(hi,FR[k][1])]:[lo,hi];
+    const w=document.createElement('div');w.innerHTML=`<div class="scrub-h"><span>${t(c.l)}</span><b>${c.read(FR[k][0],FR[k][1])}</b></div><div class="track"></div>`;box.appendChild(w);
+    ruler(w.querySelector('.track'),{min:lo,max:hi,step:c.step,values:FR[k],major:c.major,labels:c.lab(lo,hi),aria:[t(c.l)+' min',t(c.l)+' max'],fmt:v=>String(v),bigStep:5,
+      onInput:v=>{FR[k]=v;w.querySelector('b').textContent=c.read(v[0],v[1]);schedule();}});});
+}
+const narrow=k=>FB[k]&&(FR[k][0]>FB[k][0]||FR[k][1]<FB[k][1]);
+let pend=0;function schedule(){if(!pend)pend=requestAnimationFrame(()=>{pend=0;render();});}
+
+function filtered(){
+  const q=$('#q').value.trim().toLowerCase();
+  return D.items.filter(i=>{const r=R.get(i.roaster);if(!r)return false;
+    if(region!=='all'&&r.region!==region)return false;
+    if(kind!=='all'&&i.kind&&i.kind.length&&!i.kind.includes(kind)&&!i.kind.includes('omni'))return false;
+    if(fStock&&!i.avail)return false;
+    if(fNew&&!isNew(i))return false;
+    if(fHad&&i._had)return false;
+    if(narrow('p100')){if(i.p100==null||i.p100<FR.p100[0]||(FR.p100[1]<FB.p100[1]&&i.p100>FR.p100[1]))return false;}
+    if(narrow('alt')){if(!i.alt||i.alt<FR.alt[0]||i.alt>FR.alt[1])return false;}
+    if(q){const hay=[i.title,r.name,i.country,cty(i.country),i.process,proc(i.process),(i.variety||[]).join(' '),(i.variety||[]).map(vari).join(' '),(i.notes||[]).join(' '),i.producer,i.farm,i.region].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    return true;});
+}
+function headHTML(){
+  const H=[['','colName',''],['','colCountry','hm'],['','colProcess','hm'],['','colVariety','hm'],['','colNotes','hm'],['g','colSize','r hm'],['price','colPrice','r hm'],['p100','colP','r'],['','','']];
+  return `<div class="ix-h">${H.map(([k,l,c])=>k?`<button type="button" class="${c}${sortK===k?' on':''}" data-s="${k}">${t(l)}${sortK===k?(sortDir>0?' ↑':' ↓'):''}</button>`:`<span class="${c}">${l?t(l):''}</span>`).join('')}</div>`;
+}
+function rowHTML(i){
+  const o=openId===i._id, st=SHORT.includes(i._id), r=R.get(i.roaster);
+  const b=(isNew(i)?`<span class="badge new">${t('badgeNew')}</span>`:'')+(i._had?`<span class="badge had" title="${esc(t('hadTip')+i._had.roaster+' · '+i._had.title)}">${t('badgeHad')}</span>`:'')+(!i.avail?`<span class="badge so">${t('badgeSold')}</span>`:'');
+  const c=i.blend?t('blend'):(cty(i.country)||'—');
+  return `<div class="ix-r${o?' open':''}${i.avail?'':' out'}" role="button" tabindex="0" data-id="${esc(i._id)}" aria-expanded="${o}">
+<span class="nm"><span class="t">${esc(i.title)}${b}</span><span class="sub">${esc(r.name)} · ${esc(c)}${i.process?' · '+esc(proc(i.process)):''}</span></span>
+<span class="c hm">${esc(c)}</span><span class="c hm">${esc(proc(i.process)||'—')}</span><span class="c hm">${esc((i.variety||[]).map(vari).join(', ')||'—')}</span>
+<span class="nt hm">${esc((i.notes||[]).join(' · '))}</span>
+<span class="c r hm">${i.grams?i.grams+' g':'—'}</span><span class="c r hm">${money(i.price,i.cur)}</span><span class="c r">${yuan(i.p100)}</span>
+<button type="button" class="star" data-star="${esc(i._id)}" aria-pressed="${st}" aria-label="${esc(st?t('remove'):t('add'))}">${st?'★':'☆'}</button></div>
+<div class="ix-x${o?' open':''}" data-x="${esc(i._id)}"><div class="ix-xi">${o?detailHTML(i):''}</div></div>`;
+}
+function detailHTML(i){
+  const r=R.get(i.roaster),st=SHORT.includes(i._id);
+  const rows=[[t('producer'),i.producer],[t('farm'),i.farm],[t('region'),i.region],[t('alt'),i.alt?i.alt+' m':null],[t('variety'),(i.variety||[]).map(vari).join(', ')],[t('process'),proc(i.process)],
+    [t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${money(s[1],i.cur)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
+  return `<div class="ix-xc"><div>${i.notes&&i.notes.length?`<p style="font-style:italic;font-size:18px">${esc(i.notes.join(' · '))}</p>`:''}<p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p>
+   ${i._had?`<p class="mono" style="font-family:var(--mono);font-size:12.5px;color:var(--ink2)">${esc(t('hadTip'))}${esc(i._had.roaster)} · ${esc(i._had.title)}${i._had.date?' · '+esc(i._had.date):''}</p>`:''}</div>
+   <div><dl class="dl">${rows.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>
+   <div class="acts"><a class="btn solid" href="${esc(i.url)}" target="_blank" rel="noopener">${t('buy')}</a><button type="button" class="btn" data-star="${esc(i._id)}">${st?t('remove'):t('add')}</button></div></div></div>`;
+}
+function render(){
+  buildScrubs();
+  const L=filtered();
+  $('#resetF').hidden=!Object.keys(FB).some(narrow);
+  $('#count').textContent=t('items')(L.length)+' · '+t('fx');
+  const key={p100:i=>i.p100??1e9,price:i=>i.cny??1e9,g:i=>i.grams??1e9}[sortK];
+  if(key)L.sort((a,b)=>(key(a)-key(b))*sortDir);
+  const list=$('#list');
+  let html=headHTML();
+  if(gBy==='roaster'){
+    const order=D.roasters.filter(r=>region==='all'||r.region===region);
+    order.forEach(r=>{const its=L.filter(i=>i.roaster===r.id);const filt=its.length===0&&D.items.some(i=>i.roaster===r.id);if(filt)return;
+      html+=`<div class="rg"><span class="rk">№ ${esc(r.rank)}</span><h3>${esc(r.name)}</h3><span class="rm">${esc(r.city)} · ${esc(LANG==='zh'?r.country:r.country_en)}${r.note?' · '+esc(LANG==='zh'?r.note:r.note_en):''} · <a href="${esc(r.base)}" target="_blank" rel="noopener">${t('site')} ↗</a></span>${r.error?`<span class="warn">${t('failed')}</span>`:''}</div>`;
+      html+=its.length?its.map(rowHTML).join(''):`<p class="empty">${t('none')}</p>`;});
+  }else if(gBy==='country'){
+    const g=new Map();L.forEach(i=>{const k=i.blend?t('blend'):(cty(i.country)||t('unknown'));if(!g.has(k))g.set(k,[]);g.get(k).push(i);});
+    [...g].sort((a,b)=>b[1].length-a[1].length).forEach(([k,v])=>{html+=`<div class="rg"><h3>${esc(k)}</h3><span class="rm">${t('items')(v.length)}</span></div>`+v.map(rowHTML).join('');});
+  }else html+=L.length?L.map(rowHTML).join(''):'';
+  if(!L.length&&gBy!=='roaster')html+=`<p class="empty">${t('noMatch')}</p>`;
+  list.innerHTML=html;
+  renderShort();
+}
+function renderShort(){
+  const S=SHORT.map(id=>D.items.find(i=>i._id===id)).filter(Boolean);
+  const b=$('#shortBtn');b.hidden=!S.length;b.textContent=t('shortN')(S.length);
+  $('#short').innerHTML=`<button type="button" class="btn" id="sx">${t('close')}</button><h2>${t('short')}</h2>${S.length?S.map(i=>`<div class="srow"><a class="st" href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.title)}</a><button type="button" data-star="${esc(i._id)}">${t('remove')}</button><span class="sm">${esc(R.get(i.roaster).name)} · ${i.grams?i.grams+' g · ':''}${money(i.price,i.cur)} · ${yuan(i.p100)}/100 g</span></div>`).join(''):`<p class="empty">${t('shortEmpty')}</p>`}`;
+  $('#sx').onclick=closeShort;
+}
+function closeShort(){$('#short').classList.remove('on');$('#scrim').classList.remove('on');}
+function toggleStar(id){SHORT=SHORT.includes(id)?SHORT.filter(x=>x!==id):[...SHORT,id];store.set('bm-short',SHORT);render();}
+function toggleRow(id){
+  const prev=openId;if(prev){const x=document.querySelector(`.ix-x[data-x="${CSS.escape(prev)}"]`),r=document.querySelector(`.ix-r[data-id="${CSS.escape(prev)}"]`);if(x)x.classList.remove('open');if(r){r.classList.remove('open');r.setAttribute('aria-expanded','false');}}
+  if(prev===id){openId=null;return;}openId=id;const i=D.items.find(x=>x._id===id);
+  const x=document.querySelector(`.ix-x[data-x="${CSS.escape(id)}"]`),r=document.querySelector(`.ix-r[data-id="${CSS.escape(id)}"]`);
+  if(x){x.firstElementChild.innerHTML=detailHTML(i);void x.offsetHeight;x.classList.add('open');}if(r){r.classList.add('open');r.setAttribute('aria-expanded','true');}
+}
+function applyStatic(){
+  document.documentElement.lang=LANG==='zh'?'zh-CN':'en';
+  $$('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));
+  $('#q').placeholder=t('search');
+  $$('#langTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===LANG));
+  $$('#regionTabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===region));
+  if(D)$('#upd').textContent=t('updated')+' '+ago(D.updated);
+}
+function wire(){
+  const seg=(id,fn)=>$$(id+' button').forEach(b=>b.onclick=()=>{$$(id+' button').forEach(x=>x.setAttribute('aria-pressed',x===b));fn(b);render();});
+  seg('#regionTabs',b=>{region=b.dataset.v;store.set('bm-region',region);});
+  seg('#kindTabs',b=>{kind=b.dataset.v;});
+  seg('#groupTabs',b=>{gBy=b.dataset.g;});
+  $$('#langTabs button').forEach(b=>b.onclick=()=>{LANG=b.dataset.l;store.set('bm-lang',LANG);sig='';applyStatic();render();});
+  [['#fStock',v=>fStock=v],['#fNew',v=>fNew=v],['#fHad',v=>fHad=v]].forEach(([id,f])=>{$(id).onclick=()=>{const v=$(id).getAttribute('aria-pressed')!=='true';$(id).setAttribute('aria-pressed',v);f(v);render();};});
+  $('#q').oninput=schedule;
+  $('#resetF').onclick=()=>{FR={};sig='';render();};
+  document.addEventListener('click',e=>{
+    const s=e.target.closest('[data-star]');if(s){e.stopPropagation();toggleStar(s.dataset.star);return;}
+    const h=e.target.closest('.ix-h button[data-s]');if(h){const k=h.dataset.s;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=1;}render();return;}
+    const r=e.target.closest('.ix-r');if(r&&!e.target.closest('a'))toggleRow(r.dataset.id);
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeShort();const r=e.target.closest&&e.target.closest('.ix-r');if(r&&(e.key==='Enter'||e.key===' ')&&e.target===r){e.preventDefault();toggleRow(r.dataset.id);}});
+  $('#shortBtn').onclick=()=>{$('#short').classList.add('on');$('#scrim').classList.add('on');};
+  $('#scrim').onclick=closeShort;
+}
+async function boot(){
+  applyStatic();wire();
+  const [m,h]=await Promise.all([fetch('data/menu.json',{cache:'no-cache'}).then(r=>r.json()),fetch('data/consumed.json').then(r=>r.json()).catch(()=>[])]);
+  D=m;HAD=h;HK=hadKeys();
+  const first=D.items.reduce((a,i)=>i.first_seen<a?i.first_seen:a,'9999');D.firstRun=first;
+  D.roasters.forEach(r=>R.set(r.id,r));
+  D.items.forEach((i,n)=>{i._id=i.roaster+'|'+i.url;i._had=had(i);});
+  applyStatic();render();
+}
+boot();
+})();
+
+</script>
+</body>
+</html>
