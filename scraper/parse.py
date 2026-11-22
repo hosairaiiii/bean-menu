@@ -215,7 +215,9 @@ def split_notes(s):
         p = re.sub(r"^(?:a|an|the|some|hints? of|notes? of)\s+", "", p, flags=re.I)
         p = re.split(r"\s+(?:roasted|whole bean|ristede)\b", p, flags=re.I)[0].strip()
         p = re.sub(r"^with (?:an? |some )?|\s+(?:finish|aftertaste|body|notes?)$|!+$", "", p, flags=re.I).strip()
-        if re.match(r"(?:when|it|it's|we|this|our|you|they|there|which|while)\b", p, re.I):
+        if re.match(r"(?:when|it|it's|we|this|our|you|they|there|which|while|the|a|an|however|many|members?)\b", p, re.I):
+            continue
+        if re.search(r"risk|member|controll|enhanc|accelerat|yeast|improv|accompan|cenicaf|ferment|process|washed|natural|caturra|bourbon|geisha|gesha|typica|variet|altitude|masl|harvest|producer|farm|recommend|roast", p, re.I):
             continue
         if len(p.split()) > 3 or re.search(r"\b(?:cup|orders?|shipping|placed|if any|qualities|carried)\b", p, re.I):
             continue

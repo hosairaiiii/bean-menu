@@ -1,11 +1,12 @@
 """Bilingual (zh / en) short intros + Chinese flavour names for every bean in menu.json.
 
-Uses GitHub Models (free tier, authenticated with the workflow's GITHUB_TOKEN), so it costs
-nothing and needs no extra key. Results are cached in docs/data/tr.json by a hash of the
-source text, so each description is only ever sent once; the free daily quota is respected
-by stopping early and continuing on the next run.
+Optional. Works with any OpenAI-compatible chat API whose key is stored as the repository
+secret TR_API_KEY (default endpoint: DeepSeek; set TR_API_URL / TR_MODEL to use another).
+Without a key it does nothing and the page falls back to the browser's own on-device translator.
+Results are cached in docs/data/tr.json by a hash of the source text, so each description is
+only ever sent once.
 
-Run: GITHUB_TOKEN=... python scraper/translate.py [max_requests]
+Run: TR_API_KEY=... python scraper/translate.py [max_requests]
 """
 import hashlib, json, os, re, sys, time
 from pathlib import Path
@@ -14,8 +15,8 @@ import requests
 ROOT = Path(__file__).resolve().parent.parent
 MENU = ROOT / "docs" / "data" / "menu.json"
 TR = ROOT / "docs" / "data" / "tr.json"
-URL = "https://models.github.ai/inference/chat/completions"
-MODEL = os.environ.get("TR_MODEL", "openai/gpt-4o-mini")
+URL = os.environ.get("TR_API_URL") or "https://api.deepseek.com/chat/completions"
+MODEL = os.environ.get("TR_MODEL") or "deepseek-chat"
 MAX_REQ = int(sys.argv[1]) if len(sys.argv) > 1 else 120
 BATCH_CHARS = 5200
 BATCH_MAX = 10
@@ -45,8 +46,7 @@ def call(batch, token):
             {"role": "user", "content": json.dumps(batch, ensure_ascii=False)},
         ],
     }
-    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
-           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     url = URL
     for _ in range(3):   # follow redirects but keep it a POST (requests would turn it into a GET)
         r = requests.post(url, json=payload, timeout=120, headers=hdr, allow_redirects=False)
@@ -69,9 +69,9 @@ def call(batch, token):
     return json.loads(m.group(0))
 
 def main():
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("TR_API_KEY")
     if not token:
-        print("no GITHUB_TOKEN – skipping translation"); return
+        print("no TR_API_KEY secret – skipping (the page uses the browser's translator instead)"); return
     menu = json.loads(MENU.read_text())
     tr = json.loads(TR.read_text()) if TR.exists() else {}
     live = set()
@@ -112,7 +112,7 @@ def main():
                 tr[k] = {"zh": v["zh"].strip(), "en": v["en"].strip(),
                          "notes_zh": [str(x) for x in (v.get("notes_zh") or [])][:6]}
                 done += 1
-        time.sleep(4.5)  # free tier: ~15 requests / minute
+        time.sleep(1)
     # drop entries for beans no longer listed (keeps the file small)
     tr = {k: v for k, v in tr.items() if k in live}
     TR.write_text(json.dumps(tr, ensure_ascii=False, separators=(",", ":")))

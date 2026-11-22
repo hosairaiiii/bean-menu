@@ -157,13 +157,13 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 let LANG=store.get('bm-lang','zh');
 const UI={
- zh:{lAll:'全部烘焙商',lTop:'Top 50',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',asia:'亚洲','north-america':'北美',oceania:'大洋洲','middle-east':'中东',curLocal:'原价',fxLocal:'显示各店标价（原币种）',orig:'原文',trPending:'中文简介生成中，先显示原文。',totals:'合计',grams:'总克数',byProcess:'处理法',byRoaster:'烘焙商',bags:n=>n+' 包',mixed:'多种币种',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
+ zh:{mtNote:'由浏览器本地机器翻译',gt:'用 Google 翻译看全文 ↗',mtWorking:'正在用浏览器本地翻译……',lAll:'全部烘焙商',lTop:'Top 50',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',asia:'亚洲','north-america':'北美',oceania:'大洋洲','middle-east':'中东',curLocal:'原价',fxLocal:'显示各店标价（原币种）',orig:'原文',trPending:'中文简介生成中，先显示原文。',totals:'合计',grams:'总克数',byProcess:'处理法',byRoaster:'烘焙商',bags:n=>n+' 包',mixed:'多种币种',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
   colName:'名称',colCountry:'产国',colProcess:'处理法',colVariety:'品种',colNotes:'风味',colSize:'规格',colPrice:'价格',colP:'每百克',
   items:n=>n+' 款',updated:'更新于',ago:{m:n=>n+' 分钟前',h:n=>n+' 小时前',d:n=>n+' 天前'},fP:'每百克价格',fAlt:'海拔',
   badgeNew:'上新',badgeHad:'喝过',badgeSold:'售罄',hadTip:'档案里有同一庄园或生产者：',failed:'这次没抓到，显示的是上一次的结果',none:'这家目前没有在售的豆子，或抓取失败',
   producer:'生产者',farm:'庄园 / 处理站',region:'产区',alt:'海拔',variety:'品种',process:'处理法',sizes:'规格',buy:'去官网 ↗',add:'加入待买',remove:'移出待买',
   short:'待买',shortN:n=>'待买 '+n,shortEmpty:'还没有加入任何豆子。',close:'关闭',site:'官网',blend:'拼配',unknown:'未注明',noMatch:'没有符合条件的豆子。',decaf:'低因',fx:'按当天欧洲央行汇率换算'},
- en:{lAll:'All roasters',lTop:'Top 50',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',asia:'Asia','north-america':'North America',oceania:'Oceania','middle-east':'Middle East',curLocal:'Local',fxLocal:'shop prices in their own currency',orig:'original',trPending:'English intro on its way — showing the shop’s text.',totals:'Total',grams:'Weight',byProcess:'Process',byRoaster:'Roasters',bags:n=>n+(n===1?' bag':' bags'),mixed:'mixed currencies',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
+ en:{mtNote:'machine-translated in your browser',gt:'Translate with Google ↗',mtWorking:'Translating in your browser…',lAll:'All roasters',lTop:'Top 50',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',asia:'Asia','north-america':'North America',oceania:'Oceania','middle-east':'Middle East',curLocal:'Local',fxLocal:'shop prices in their own currency',orig:'original',trPending:'English intro on its way — showing the shop’s text.',totals:'Total',grams:'Weight',byProcess:'Process',byRoaster:'Roasters',bags:n=>n+(n===1?' bag':' bags'),mixed:'mixed currencies',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
   colName:'Name',colCountry:'Origin',colProcess:'Process',colVariety:'Variety',colNotes:'Notes',colSize:'Size',colPrice:'Price',colP:'per 100 g',
   items:n=>n+(n===1?' coffee':' coffees'),updated:'Updated',ago:{m:n=>n+' min ago',h:n=>n+' h ago',d:n=>n+' d ago'},fP:'Price per 100 g',fAlt:'Altitude',
   badgeNew:'new',badgeHad:'had',badgeSold:'sold out',hadTip:'Same farm or producer in your archive: ',failed:'Not reached this time — showing the previous list',none:'Nothing on sale right now, or the site could not be read',
@@ -188,9 +188,17 @@ const conv=(v,from,to)=>{const fx=D&&D.rates;if(v==null||!fx||!fx[from]||!fx[to]
 const pv=i=>i.grams&&i.price!=null?conv(i.price/i.grams*100,i.cur,RC()):null;  /* per 100 g, comparable */
 const priceOut=i=>CUR==='local'?money(i.price,i.cur):money(conv(i.price,i.cur,CUR),CUR);
 const p100Out=i=>{if(!i.grams||i.price==null)return '—';if(CUR==='local')return money(i.price/i.grams*100,i.cur);const v=pv(i);return v==null?'—':CUR==='CNY'?yuan(v):money(v,CUR);};
+
+/* flavour words → Chinese (exact phrase first, then modifier + noun) */
+const FLV={'honey':'蜂蜜','chocolate':'巧克力','floral':'花香','cherry':'樱桃','jasmine':'茉莉','orange':'橙子','peach':'桃子','caramel':'焦糖','milk chocolate':'牛奶巧克力','plum':'李子','apricot':'杏','strawberry':'草莓','dark chocolate':'黑巧克力','pineapple':'菠萝','bergamot':'佛手柑','raspberry':'树莓','grape':'葡萄','apple':'苹果','blueberry':'蓝莓','cocoa':'可可','cacao':'可可','brown sugar':'红糖','hazelnut':'榛子','mango':'芒果','blackberry':'黑莓','vanilla':'香草','blackcurrant':'黑加仑','black currant':'黑加仑','lemon':'柠檬','almond':'杏仁','black tea':'红茶','violet':'紫罗兰','grapefruit':'西柚','nectarine':'油桃','orange blossom':'橙花','lime':'青柠','mandarin':'柑橘','nougat':'牛轧糖','rose':'玫瑰','citrus':'柑橘','pear':'梨','tangerine':'橘子','melon':'甜瓜','lychee':'荔枝','hibiscus':'洛神花','passion fruit':'百香果','passionfruit':'百香果','elderflower':'接骨木花','toffee':'太妃糖','white tea':'白茶','molasses':'糖蜜','cinnamon':'肉桂','red fruits':'红色水果','red fruit':'红色水果','stone fruits':'核果','stone fruit':'核果','stonefruit':'核果','pomegranate':'石榴','cane sugar':'蔗糖','sugar cane':'甘蔗','sugarcane':'甘蔗','honeysuckle':'金银花','blood orange':'血橙','red currant':'红醋栗','redcurrant':'红醋栗','clementine':'小柑橘','berries':'莓果','berry':'莓果','fig':'无花果','panela':'粗糖','green tea':'绿茶','earl grey':'伯爵茶','earl grey tea':'伯爵茶','papaya':'木瓜','praline':'果仁糖','guava':'番石榴','red berries':'红莓','rhubarb':'大黄','watermelon':'西瓜','cacao nibs':'可可碎','cocoa nibs':'可可碎','dried fruits':'果干','dried fruit':'果干','oolong':'乌龙茶','oolong tea':'乌龙茶','cream':'奶油','creamy':'奶油感','lemongrass':'香茅','tropical':'热带水果','tropical fruit':'热带水果','tropical fruits':'热带水果','herbal':'草本','nuts':'坚果','nutty':'坚果','lemon zest':'柠檬皮','orange zest':'橙皮','orange peel':'橙皮','citrus peel':'柑橘皮','cranberry':'蔓越莓','cardamom':'小豆蔻','yuzu':'柚子','pecan':'碧根果','winey':'酒感','star fruit':'杨桃','malt':'麦芽','fudge':'软糖','spiced':'香料','spice':'香料','spices':'香料','walnut':'核桃','maple syrup':'枫糖浆','maple':'枫糖','biscuit':'饼干','lavender':'薰衣草','shortbread':'黄油饼干','macadamia':'夏威夷果','kumquat':'金桔','rooibos':'南非博士茶','dragon fruit':'火龙果','coconut':'椰子','ginger':'姜','rosehip':'玫瑰果','rose hips':'玫瑰果','rosehips':'玫瑰果','thyme':'百里香','graham cracker':'全麦饼干','date':'椰枣','dates':'椰枣','honeycomb':'蜂巢','blossom honey':'花蜜','floral honey':'花蜜','wildflower honey':'野花蜜','heather honey':'石楠花蜜','peanut butter':'花生酱','liquorice':'甘草','licorice':'甘草','white grape':'白葡萄','brazil nut':'巴西坚果','cherry liqueur':'樱桃利口酒','sherbet':'雪葩','cointreau':'君度','gooseberry':'鹅莓','sea buckthorn':'沙棘','cantaloupe':'哈密瓜','honeydew':'蜜瓜','key lime pie':'青柠派','silver needle':'白毫银针','lemon verbena':'柠檬马鞭草','lemon balm':'香蜂草','tree tomato':'树番茄','fruit punch':'果汁宾治','raisin':'葡萄干','raisins':'葡萄干','persimmon':'柿子','quince':'榅桲','kiwi':'猕猴桃','soursop':'刺果番荔枝','tamarind':'罗望子','cola':'可乐','rum':'朗姆酒','whisky':'威士忌','brandy':'白兰地','red wine':'红酒','wine':'葡萄酒','sherry':'雪莉酒','butter':'黄油','buttery':'黄油感','toast':'烤面包','bread':'面包','marzipan':'杏仁糖','candy':'糖果','jam':'果酱','syrup':'糖浆','syrupy':'糖浆感','juicy':'多汁','silky':'丝滑','smooth':'顺滑','round':'圆润','balanced':'平衡','sweet':'甜感','complex':'复杂','clean':'干净','bright':'明亮','elegant':'优雅','delicate':'细腻','tea like':'茶感','tea-like':'茶感','lingering':'余韵悠长','fruity':'果香','mixed berries':'综合莓果','chocolate truffle':'松露巧克力','cherry cola':'樱桃可乐','walnut whip':'核桃奶油','berry compote':'莓果蜜饯','white flowers':'白花','concord grape':'康科德葡萄','pecan nuts':'碧根果','cashew':'腰果','cashew nuts':'腰果','soft florals':'柔和花香','citrus blossom':'柑橘花','mulling spices':'热红酒香料','baked fruit':'烤水果','cassis':'黑加仑','muscat':'麝香葡萄','muscat grape':'麝香葡萄','pink guava':'粉番石榴','longan':'龙眼','yellow peach':'黄桃','white peach':'白桃','pomelo':'柚子','pomelo juice':'柚子汁','plum juice':'李子汁','orange juice':'橙汁','grape juice':'葡萄汁','strawberry juice':'草莓汁','lime juice':'青柠汁','hops':'啤酒花','oak':'橡木','tobacco':'烟草','cedar':'雪松','pepper':'胡椒','clove':'丁香','nutmeg':'肉豆蔻','anise':'茴香','mint':'薄荷','basil':'罗勒','sage':'鼠尾草','tomato':'番茄','olive':'橄榄','peanut':'花生','pistachio':'开心果','sesame':'芝麻','gingerbread':'姜饼','panettone':'潘妮托尼','pavlova':'奶油蛋白饼','cheesecake':'芝士蛋糕','brownie':'布朗尼','custard':'卡仕达','yogurt':'酸奶','yoghurt':'酸奶','lemon curd':'柠檬凝乳','candied orange':'糖渍橙子','candied citrus':'糖渍柑橘','candied lemon':'糖渍柠檬','candied peach':'糖渍桃子','marmalade':'橘子酱','mandarin orange':'蜜柑','orange citrus':'橙子柑橘','sweet citrus':'甜柑橘','balanced citrus':'平衡的柑橘','dark fruit':'深色水果','dark fruits':'深色水果','purple fruits':'紫色水果','yellow fruits':'黄色水果','red cherries':'红樱桃','purple grape':'紫葡萄','red grape':'红葡萄','sweet grapes':'甜葡萄','red apple':'红苹果','green apple':'青苹果','dried apple':'苹果干','dried apricot':'杏干','dried cranberry':'蔓越莓干','dried fig':'无花果干','red plum':'红李','yellow plum':'黄李','dark plum':'黑李','ripe plum':'熟李子','dark cherry':'黑樱桃','black cherry':'黑樱桃','ripe strawberry':'熟草莓','wild strawberry':'野草莓','raspberry jam':'树莓果酱','blackberry jam':'黑莓果酱','blueberry jam':'蓝莓果酱','strawberry jam':'草莓果酱','cherry candy':'樱桃糖','lemon candy':'柠檬糖','sugus candy':'瑞士糖','bubblegum':'泡泡糖','cotton candy':'棉花糖'};
+const MOD={'ripe':'熟','dried':'干','candied':'糖渍','fresh':'新鲜','sweet':'甜','juicy':'多汁','dark':'深色','red':'红','white':'白','green':'青','yellow':'黄','black':'黑','purple':'紫','pink':'粉','wild':'野','baked':'烤','roasted':'烤','stewed':'炖','poached':'糖煮','soft':'柔和','bright':'明亮','light':'清淡','rich':'浓郁','deep':'深沉','delicate':'细腻','subtle':'细微','creamy':'奶油','tart':'微酸','tangy':'酸爽','spiced':'香料','toasted':'烤','caramelized':'焦糖化','lingering':'悠长','sparkling':'起泡','mixed':'综合','tropical':'热带','fermented':'发酵'};
+function flavorZh(n){const k=String(n).toLowerCase().replace(/[.!]+$/,'').trim();if(FLV[k])return FLV[k];
+  const w=k.split(/\s+/);if(w.length>1){const head=w.slice(1).join(' ');if(MOD[w[0]]&&FLV[head])return MOD[w[0]]+FLV[head];
+    const tail=w[w.length-1];if(FLV[tail]&&w.slice(0,-1).every(x=>MOD[x]))return w.slice(0,-1).map(x=>MOD[x]).join('')+FLV[tail];}
+  return n;}
 let TR={};
 const trOf=i=>TR[i.tk]||null;
-const notesOf=i=>{const x=trOf(i);return LANG==='zh'&&x&&x.notes_zh&&x.notes_zh.length?x.notes_zh:(i.notes||[]);};
+const notesOf=i=>{const x=trOf(i);if(LANG!=='zh')return i.notes||[];return x&&x.notes_zh&&x.notes_zh.length?x.notes_zh:(i.notes||[]).map(flavorZh);};
 
 function ruler(el,cfg){
   const {min,max,step}=cfg, n=Math.round((max-min)/step), span=max-min||1;
@@ -305,8 +313,11 @@ function detailHTML(i){
   const rows=[[t('producer'),i.producer],[t('farm'),i.farm],[t('region'),i.region],[t('alt'),i.alt?i.alt+' m':null],[t('variety'),(i.variety||[]).map(vari).join(', ')],[t('process'),proc(i.process)],
     [t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${CUR==='local'?money(s[1],i.cur):money(conv(s[1],i.cur,CUR),CUR)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
   const x=trOf(i), N=notesOf(i);
-  const intro=x?`<p class="intro">${esc(x[LANG]||x.en)}</p><details class="orig"><summary>${t('orig')}</summary><p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p></details>`
-               :`<p class="pend">${t('trPending')}</p><p>${esc(i.desc||'')}${(i.desc||'').length>=600?'…':''}</p>`;
+  const D0=esc(i.desc||'')+((i.desc||'').length>=600?'…':'');
+  const cached=MT.get(i.tk+'|'+LANG);
+  const intro=x?`<p class="intro">${esc(x[LANG]||x.en)}</p><details class="orig"><summary>${t('orig')}</summary><p>${D0}</p></details>`
+    :cached?`<p class="intro">${esc(cached)}</p><p class="pend">${t('mtNote')}</p><details class="orig"><summary>${t('orig')}</summary><p>${D0}</p></details>`
+    :`<p class="intro" data-mt="${esc(i._id)}">${D0}</p><p class="pend" data-mtn="${esc(i._id)}">${i.desc?`<a href="https://translate.google.com/?sl=auto&tl=${LANG==='zh'?'zh-CN':'en'}&op=translate&text=${encodeURIComponent((i.desc||'').slice(0,1800))}" target="_blank" rel="noopener">${t('gt')}</a>`:''}</p>`;
   return `<div class="ix-xc"><div>${N.length?`<p style="font-style:italic;font-size:18px">${esc(N.join(' · '))}</p>`:''}${intro}
    ${i._had?`<p class="mono" style="font-family:var(--mono);font-size:12.5px;color:var(--ink2)">${esc(t('hadTip'))}${esc(i._had.roaster)} · ${esc(i._had.title)}${i._had.date?' · '+esc(i._had.date):''}</p>`:''}</div>
    <div><dl class="dl">${rows.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>
@@ -355,11 +366,42 @@ function renderShort(){
 }
 function closeShort(){$('#short').classList.remove('on');$('#scrim').classList.remove('on');}
 function toggleStar(id){SHORT=SHORT.includes(id)?SHORT.filter(x=>x!==id):[...SHORT,id];store.set('bm-short',SHORT);render();}
+/* Browser-side translation (Chrome's built-in, on-device Translator API) when no prepared intro exists */
+const MT=new Map(Object.entries(store.get('bm-mt',{})));
+const saveMT=()=>{const o=Object.fromEntries([...MT].slice(-400));store.set('bm-mt',o);};
+let DET=null;const TRS={};
+async function detectLang(txt){
+  if(/[぀-ヿ]/.test(txt))return 'ja';
+  try{if('LanguageDetector' in self){DET=DET||await LanguageDetector.create();const r=await DET.detect(txt);if(r&&r[0]&&r[0].confidence>.5)return r[0].detectedLanguage;}}catch(e){}
+  if(/\b(le|la|les|des|et|avec|notes de|café)\b/i.test(txt))return 'fr';
+  if(/\b(der|die|das|und|mit|kaffee)\b/i.test(txt))return 'de';
+  if(/\b(el|los|las|con|notas|y)\b/i.test(txt))return 'es';
+  return 'en';
+}
+async function browserTranslate(i){
+  if(!('Translator' in self)||!i.desc)return;
+  const key=i.tk+'|'+LANG; if(MT.has(key))return;
+  const to=LANG==='zh'?'zh':'en';
+  const from=await detectLang(i.desc);
+  if(from===to||(to==='zh'&&from.startsWith('zh')))return;
+  const pair=from+'>'+to;
+  const note=document.querySelector(`[data-mtn="${CSS.escape(i._id)}"]`);
+  try{
+    const av=await Translator.availability({sourceLanguage:from,targetLanguage:to});
+    if(av==='unavailable')return;
+    if(note)note.textContent=t('mtWorking');
+    TRS[pair]=TRS[pair]||await Translator.create({sourceLanguage:from,targetLanguage:to});
+    const out=await TRS[pair].translate(i.desc);
+    MT.set(key,out);saveMT();
+    if(openId===i._id){const x=document.querySelector(`.ix-x[data-x="${CSS.escape(i._id)}"]`);if(x)x.firstElementChild.innerHTML=detailHTML(i);}
+  }catch(e){if(note&&note.textContent===t('mtWorking'))note.textContent='';}
+}
 function toggleRow(id){
   const prev=openId;if(prev){const x=document.querySelector(`.ix-x[data-x="${CSS.escape(prev)}"]`),r=document.querySelector(`.ix-r[data-id="${CSS.escape(prev)}"]`);if(x)x.classList.remove('open');if(r){r.classList.remove('open');r.setAttribute('aria-expanded','false');}}
   if(prev===id){openId=null;return;}openId=id;const i=D.items.find(x=>x._id===id);
   const x=document.querySelector(`.ix-x[data-x="${CSS.escape(id)}"]`),r=document.querySelector(`.ix-r[data-id="${CSS.escape(id)}"]`);
-  if(x){x.firstElementChild.innerHTML=detailHTML(i);void x.offsetHeight;x.classList.add('open');}if(r){r.classList.add('open');r.setAttribute('aria-expanded','true');}
+  if(x){x.firstElementChild.innerHTML=detailHTML(i);void x.offsetHeight;x.classList.add('open');}
+  if(!trOf(i))browserTranslate(i);if(r){r.classList.add('open');r.setAttribute('aria-expanded','true');}
 }
 function applyStatic(){
   document.documentElement.lang=LANG==='zh'?'zh-CN':'en';

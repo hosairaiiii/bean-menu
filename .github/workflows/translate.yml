@@ -1,17 +1,16 @@
 name: Translate intros
 
-# Short bilingual intros via GitHub Models (free tier ≈150 requests/day for small models).
-# Runs every 2 hours with a small budget so the daily quota is spread out; cached in docs/data/tr.json.
+# Optional: bilingual intros through an OpenAI-compatible API (key in the repo secret TR_API_KEY,
+# e.g. a DeepSeek key). Without the secret this does nothing; the page then translates in the browser.
 on:
   schedule:
-    - cron: "41 */2 * * *"
+    - cron: "41 */6 * * *"
   workflow_dispatch:
   push:
     paths: ["scraper/translate.py", ".github/workflows/translate.yml"]
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
   group: translate
@@ -20,27 +19,18 @@ concurrency:
 jobs:
   translate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install requests
-      - name: Probe GitHub Models
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          B='{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"Say hi in Chinese."}]}'
-          for V in 2026-03-10 none; do
-            echo "== version $V"
-            if [ "$V" = none ]; then H=""; else H="X-GitHub-Api-Version: $V"; fi
-            curl -sS -i -X POST https://models.github.ai/inference/chat/completions -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" ${H:+-H "$H"} -H "Content-Type: application/json" -d "$B" | head -c 700; echo
-          done
-          echo "== catalog"; curl -sS -i https://models.github.ai/catalog/models -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2026-03-10" | head -c 600; echo
       - env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scraper/translate.py 12
+          TR_API_KEY: ${{ secrets.TR_API_KEY }}
+          TR_API_URL: ${{ vars.TR_API_URL }}
+          TR_MODEL: ${{ vars.TR_MODEL }}
+        run: python scraper/translate.py 400
       - name: Commit translations
         run: |
           git config user.name "bean-menu-bot"
