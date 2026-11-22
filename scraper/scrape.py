@@ -10,12 +10,13 @@ from urllib.parse import urljoin
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from parse import html_text, enrich, is_coffee, grams_in, from_ship_weight, roast_kind, EXCLUDE
+from parse import html_text, enrich, is_coffee, grams_in, from_ship_weight, roast_kind, EXCLUDE, find_countries, find_process
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "menu.json"
-UA = "Mozilla/5.0 (compatible; bean-menu/1.0; personal non-commercial coffee list; +https://github.com)"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 bean-menu/1.0 (personal, non-commercial)"
 PAUSE = 0.8
+RECENT = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
 
 def session(country="FR", currency="EUR"):
     s = requests.Session()
@@ -83,11 +84,16 @@ def scrape_shopify(r):
             text = html_text(p.get("body_html"))
             if not is_coffee(p["title"], p.get("product_type", ""), p.get("tags", []), text[:200]):
                 continue
+            avail_any = any(v.get("available", True) for v in p.get("variants", []))
+            fresh = (p.get("updated_at") or "")[:10] >= RECENT
+            if not avail_any and not fresh:
+                continue  # long-gone archive entries
+            strong = bool(re.search(r"coffee|kaffe|café|filter|espresso", p.get("product_type", ""), re.I)) or bool(find_countries(p["title"] + " " + text[:400])) or bool(find_process(p["title"]))
             opts = " ".join(o["name"] + " " + " ".join(o.get("values", [])) for o in p.get("options", []))
             sizes = []
             for v in p.get("variants", []):
                 g = grams_in(v.get("title")) or grams_in(" ".join(filter(None, [v.get("option1"), v.get("option2"), v.get("option3")]))) \
-                    or grams_in(p["title"]) or grams_in(text[:300]) or from_ship_weight(v.get("grams"))
+                    or grams_in(p["title"]) or grams_in(text[:300]) or (from_ship_weight(v.get("grams")) if strong else None)
                 try:
                     price = float(v["price"])
                 except Exception:
@@ -115,12 +121,15 @@ def scrape_woo(r):
     base = r["base"].rstrip("/")
     items, page = [], 1
     while page <= 10:
-        res = s.get(f"{base}/wp-json/wc/store/v1/products", params={"per_page": 100, "page": page}, timeout=25)
+        res = s.get(f"{base}/wp-json/wc/store/v1/products", params={"per_page": 100, "page": page}, timeout=25, headers={"Accept": "application/json"})
         time.sleep(PAUSE)
         if res.status_code == 400:
             break
         res.raise_for_status()
-        prods = res.json()
+        try:
+            prods = res.json()
+        except Exception:
+            raise RuntimeError(f"not JSON (HTTP {res.status_code}, {res.headers.get('content-type')}): {res.text[:120]!r}")
         if not prods:
             break
         for p in prods:
@@ -246,6 +255,36 @@ def scrape_html(r):
         items.append(make_item(r, title, u, text, sizes, cur))
     return items
 
+SIZE_RE = re.compile(r"[,\-–—|/(]*\s*\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grams?|lbs?|oz)\b\)?", re.I)
+KIND_RE = re.compile(r"[\s,\-–—|/(]+(?:espresso|filter|omni|filtre|roast)(?:\s+roast)?\)?\s*$", re.I)
+def merge(items):
+    out, idx = [], {}
+    for it in items:
+        k = KIND_RE.sub("", SIZE_RE.sub("", it["title"])).strip(" ,-–—|").lower()
+        k = re.sub(r"\s+", " ", k)
+        if k in idx:
+            m = idx[k]
+            m["sizes"] = sorted({tuple(x) for x in m["sizes"] + it["sizes"]}, key=lambda s: s[0])[:6]
+            m["kind"] = sorted(set(m["kind"]) | set(it["kind"]))
+            m["avail"] = m["avail"] or it["avail"]
+            for f in ("notes", "variety", "country", "process", "producer", "farm", "region", "alt"):
+                if not m.get(f) and it.get(f):
+                    m[f] = it[f]
+            av = [s for s in m["sizes"] if s[2] and 60 <= s[0] <= 1100] or [s for s in m["sizes"] if 60 <= s[0] <= 1100]
+            if av:
+                g, pr, _ = min(av, key=lambda s: (s[0], s[1]))
+                if not m.get("grams") or g < m["grams"] or m["grams"] > 1100:
+                    m["grams"], m["price"] = g, pr
+                    m["url"] = it["url"] if it.get("grams") == g else m["url"]
+            continue
+        it = dict(it)
+        it["title"] = KIND_RE.sub("", SIZE_RE.sub("", it["title"])).strip(" ,-–—|") or it["title"]
+        if it.get("grams") and it["grams"] > 1100:
+            it["grams"] = None
+        idx[k] = it
+        out.append(it)
+    return [i for i in out if i.get("grams")]
+
 ADAPTERS = {"shopify": scrape_shopify, "woo": scrape_woo, "html": scrape_html}
 
 def main(only=None):
@@ -272,7 +311,7 @@ def main(only=None):
             continue
         t0 = time.time()
         try:
-            items = ADAPTERS[r["platform"]](r)
+            items = merge(ADAPTERS[r["platform"]](r))
             err = None
         except Exception as e:
             items, err = [], f"{type(e).__name__}: {e}"[:200]

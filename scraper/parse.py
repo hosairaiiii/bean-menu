@@ -178,16 +178,23 @@ def labelled(text, *names):
                 return v
     return None
 
+STOP_NOTES = {"familiar", "lingering sweetness", "sweetness", "balance", "clean", "complex", "juicy", "bright"}
 def split_notes(s):
+    s = re.sub(r"^(?:a|an|the)\s+", "", s.strip(), flags=re.I)
     s = re.sub(r"\b(and|&|und|et|y)\b", ",", s, flags=re.I)
     parts = [p.strip(" .;:-–—|·•*\"'") for p in re.split(r"[,/;|·•+]|、", s)]
     out = []
     for p in parts:
-        if 1 < len(p) <= 32 and not re.search(r"\d{3,}|http|roast|brew|recipe", p, re.I):
+        p = re.sub(r"^(?:a|an|the|some|hints? of|notes? of)\s+", "", p, flags=re.I)
+        if 1 < len(p) <= 32 and p.lower() not in STOP_NOTES and not re.search(r"\d{3,}|http|roast|brew|recipe|whether|espresso|filter", p, re.I):
             out.append(p[:1].upper() + p[1:])
     return out[:6]
 
 PROSE_NOTES = [
+    r"\bexpect\s+(.+?)[.\n]",
+    r"notas (?:principales |de cata )?(?:son|de)\s+(.+?)[.\n]",
+    r"notes (?:de|of) (?:dégustation )?:?\s*(.+?)[.\n]",
+    r"with ([a-z ,'-]+?) (?:flavou?rs?|notes)\b",
     r"in the cup,? (?:we|you)(?:'ll| will)? (?:find|get|taste|can expect)\s+(.+?)[.\n]",
     r"(?:we|you)(?:'ll| will)? taste\s+(.+?)[.\n]",
     r"(?:flavou?r|tasting) notes? (?:of|include|are|like)\s+(.+?)[.\n]",
@@ -257,7 +264,7 @@ def from_ship_weight(g):
     return max(cands) if cands else None
 
 # ---------- classification ----------
-EXCLUDE = re.compile(r"subscri|abonnement|gift ?card|giftcard|gift box|gavekort|presentkort|voucher|equipment|merch|apparel|t-?shirt|hoodie|tote|\bcap\b|beanie|\bmug\b|\bcup\b(?! of excellence)|tumbler|glass|carafe|filter paper|papers|grinder|kettle|dripper|scale|capsule|nespresso|\bpods?\b|drip ?bag|brew ?bag|coffee ?bag(?:s)? \(|single serve|steep|sample|taster|tasting box|chocolate|\btea\b|matcha|chai|workshop|course|training|cupping|tour|class|book|candle|poster|bundle|\bset\b|\bbox\b|trio|duo|kit|cleaner|cafetto|thermos|wholesale|b2b|office|gift|calendar|advent|instant|concentrate|cold brew|ticket|donation|deposit|shipping", re.I)
+EXCLUDE = re.compile(r"subscri|abonnement|gift ?card|giftcard|gift box|gavekort|presentkort|voucher|equipment|merch|apparel|t-?shirt|hoodie|tote|\bcap\b|beanie|\bmug\b|\bcup\b(?! of excellence)|tumbler|glass|carafe|filter paper|papers|grinder|kettle|dripper|scale|capsule|nespresso|\bpods?\b|drip ?bag|brew ?bag|coffee ?bag(?:s)? \(|single serve|steep|sample|taster|tasting box|chocolate|\btea\b|matcha|chai|workshop|course|training|cupping|tour|class|book|candle|poster|bundle|\bset\b|\bbox\b|trio|duo|kit|cleaner|cafetto|thermos|wholesale|b2b|office|gift|calendar|advent|instant|concentrate|cold brew|ticket|donation|deposit|shipping|recurring|installment|canister|accessor|machine|baratza|breville|barista express|aeropress|chemex|\bv60\b|kalita|hario|fellow|acaia|difluid|refractometer|camiseta|\btaza\b|plato|vinyl|\brecord\b|\blp\b|album|sticker|towel|\bufo\b|\bdrip\b|tasse|lelit|la marzocco|decent|espresso machine|filter holder|portafilter|tamper|pitcher|jug", re.I)
 COFFEE_HINT = re.compile(r"coffee|coffees|kaffe|kaffee|café|cafe|filter|espresso|omni|single origin|roast|豆|コーヒー", re.I)
 
 def is_coffee(title, ptype="", tags=(), extra=""):
