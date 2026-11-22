@@ -64,6 +64,23 @@ def tkey(it):
     src = (it.get("title") or "") + "\n" + (it.get("desc") or "") + "\n" + "|".join(it.get("notes") or [])
     return hashlib.sha1(src.encode("utf-8")).hexdigest()[:14]
 
+BOILER = re.compile(r"add to (?:cart|bag|basket)|quantity|decrease|increase|view full details|product variants|you can only add|"
+                    r"save \d+ ?%|free shipping|shipping|sold out|in stock|subscribe|subscription|sign up|newsletter|"
+                    r"grind (?:size|option)|whole bean or|pre-?ground|select (?:grind|size)|choose (?:grind|size)|"
+                    r"loading|search|log ?in|account|cart|regular price|sale price|unit price|tax included|"
+                    r"\b\d+ ?(?:kr|€|£|\$)\b", re.I)
+def clean_desc(text):
+    """Drop shop furniture (cart widgets, shipping notes) from a description, keep the coffee text."""
+    out = []
+    for line in re.split(r"\n+", text or ""):
+        line = line.strip()
+        if not line or len(line) < 3:
+            continue
+        if BOILER.search(line) and len(line) < 160:
+            continue
+        out.append(line)
+    return re.sub(r"\s+", " ", " ".join(out)).strip()
+
 CJK = r"[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef]"
 def clean_title(t):
     t = re.sub(r"【[^】]*】", " ", t)
@@ -95,7 +112,7 @@ def make_item(r, title, url, text, sizes, cur, extra_kind=""):
         "avail": any(s[2] for s in sizes) if sizes else True,
         "kind": roast_kind(title, extra_kind, " ".join(s[3] or "" for s in sizes)),
         **f,
-        "desc": text[:600],
+        "desc": clean_desc(text)[:600],
     }
 
 def detail_text(s, url, hint="", title=""):
