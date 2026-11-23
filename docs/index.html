@@ -122,6 +122,13 @@ dl.dl dd{margin:0}
 #scrim.on{opacity:1;pointer-events:auto}
 @media (max-width:900px){.ix{--cols:minmax(0,1fr) 84px 30px !important}.ix .hm{display:none}.ix-r .sub{display:block}.ix-xc{grid-template-columns:1fr;gap:18px}}
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="豆单">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f3f0e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
 </head>
 <body>
 <header class="top">
@@ -455,5 +462,6 @@ boot();
 })();
 
 </script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
 </body>
 </html>
