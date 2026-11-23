@@ -4,7 +4,7 @@ name: Translate intros
 # e.g. a DeepSeek key). Without the secret this does nothing; the page then translates in the browser.
 on:
   schedule:
-    - cron: "41 */6 * * *"
+    - cron: "41 5 * * *"
   workflow_dispatch:
   push:
     paths: ["scraper/translate.py", ".github/workflows/translate.yml"]

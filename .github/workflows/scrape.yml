@@ -2,7 +2,7 @@ name: Update bean menu
 
 on:
   schedule:
-    - cron: "23 */6 * * *"   # every 6 hours
+    - cron: "23 5 * * *"   # once a day, 05:23 UTC (06:23 Paris in winter, 07:23 in summer)
   workflow_dispatch:          # "Run workflow" button
   push:
     paths: ["scraper/**", "roasters.json", ".github/workflows/scrape.yml"]
