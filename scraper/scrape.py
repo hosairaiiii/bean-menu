@@ -173,7 +173,9 @@ def scrape_shopify(r):
             if sizes and not any(sz[0] for sz in sizes):
                 continue  # no recognisable bag size → probably not a bag of beans
             url = f"{link}/products/{p['handle']}"
-            items.append(make_item(r, p["title"], url, text, sizes, None, opts + " " + " ".join(tags)))
+            it = make_item(r, p["title"], url, text, sizes, None, opts + " " + " ".join(tags))
+            it["listed"] = pub or None   # the shop's own publish date
+            items.append(it)
         if len(prods) < 250:
             break
         page += 1
@@ -408,6 +410,8 @@ def merge(items):
             m["sizes"] = sorted({tuple(x) for x in m["sizes"] + it["sizes"]}, key=lambda s: s[0])[:6]
             m["kind"] = sorted(set(m["kind"]) | set(it["kind"]))
             m["avail"] = m["avail"] or it["avail"]
+            if it.get("listed") and (not m.get("listed") or it["listed"] > m["listed"]):
+                m["listed"] = it["listed"]
             for f in ("notes", "variety", "country", "process", "producer", "farm", "region", "alt"):
                 if not m.get(f) and it.get(f):
                     m[f] = it[f]
@@ -452,8 +456,11 @@ def scrape_squarespace(r):
                     sizes.append((grams_in(label) or grams_in(title), price, avail, label))
                 if not sizes or not any(z[0] for z in sizes):
                     continue
+                pubms = x.get("publishOn") or x.get("addedOn")
                 it = make_item(r, title.split(" · ")[0] + (" · " + title.split(" · ")[1].title() if " · " in title else ""),
                                urljoin(r["base"], x.get("fullUrl") or ""), text, sizes, (x.get("variants") or [{}])[0].get("priceMoney", {}).get("currency") or r.get("cur"))
+                if pubms:
+                    it["listed"] = datetime.datetime.fromtimestamp(pubms / 1000, datetime.timezone.utc).date().isoformat()
                 items.append(it)
             nxt = (d.get("pagination") or {}).get("nextPageUrl")
             if not nxt:

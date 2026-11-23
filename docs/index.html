@@ -157,13 +157,13 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 let LANG=store.get('bm-lang','zh');
 const UI={
- zh:{mtNote:'由浏览器本地机器翻译',gt:'用 Google 翻译看全文 ↗',mtWorking:'正在用浏览器本地翻译……',lAll:'全部烘焙商',lTop:'Top 50',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',asia:'亚洲','north-america':'北美',oceania:'大洋洲','middle-east':'中东',curLocal:'原价',fxLocal:'显示各店标价（原币种）',orig:'原文',trPending:'中文简介生成中，先显示原文。',totals:'合计',grams:'总克数',byProcess:'处理法',byRoaster:'烘焙商',bags:n=>n+' 包',mixed:'多种币种',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
+ zh:{listed:'上架',mtNote:'由浏览器本地机器翻译',gt:'用 Google 翻译看全文 ↗',mtWorking:'正在用浏览器本地翻译……',lAll:'全部烘焙商',lTop:'Top 50',lPick:'精选',pick:'精选',all:'全部',europe:'欧洲',asia:'亚洲','north-america':'北美',oceania:'大洋洲','middle-east':'中东',curLocal:'原价',fxLocal:'显示各店标价（原币种）',orig:'原文',trPending:'中文简介生成中，先显示原文。',totals:'合计',grams:'总克数',byProcess:'处理法',byRoaster:'烘焙商',bags:n=>n+' 包',mixed:'多种币种',kAll:'全部',kFilter:'手冲',kEspresso:'意式',gRoaster:'烘焙商',gCountry:'产国',gNone:'不分组',inStock:'只看有货',onlyNew:'只看上新',hideHad:'隐藏喝过的',reset:'重置',search:'搜索豆名、庄园、风味……',
   colName:'名称',colCountry:'产国',colProcess:'处理法',colVariety:'品种',colNotes:'风味',colSize:'规格',colPrice:'价格',colP:'每百克',
   items:n=>n+' 款',updated:'更新于',ago:{m:n=>n+' 分钟前',h:n=>n+' 小时前',d:n=>n+' 天前'},fP:'每百克价格',fAlt:'海拔',
   badgeNew:'上新',badgeHad:'喝过',badgeSold:'售罄',hadTip:'档案里有同一庄园或生产者：',failed:'这次没抓到，显示的是上一次的结果',none:'这家目前没有在售的豆子，或抓取失败',
   producer:'生产者',farm:'庄园 / 处理站',region:'产区',alt:'海拔',variety:'品种',process:'处理法',sizes:'规格',buy:'去官网 ↗',add:'加入待买',remove:'移出待买',
   short:'待买',shortN:n=>'待买 '+n,shortEmpty:'还没有加入任何豆子。',close:'关闭',site:'官网',blend:'拼配',unknown:'未注明',noMatch:'没有符合条件的豆子。',decaf:'低因',fx:'按当天欧洲央行汇率换算'},
- en:{mtNote:'machine-translated in your browser',gt:'Translate with Google ↗',mtWorking:'Translating in your browser…',lAll:'All roasters',lTop:'Top 50',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',asia:'Asia','north-america':'North America',oceania:'Oceania','middle-east':'Middle East',curLocal:'Local',fxLocal:'shop prices in their own currency',orig:'original',trPending:'English intro on its way — showing the shop’s text.',totals:'Total',grams:'Weight',byProcess:'Process',byRoaster:'Roasters',bags:n=>n+(n===1?' bag':' bags'),mixed:'mixed currencies',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
+ en:{listed:'Listed',mtNote:'machine-translated in your browser',gt:'Translate with Google ↗',mtWorking:'Translating in your browser…',lAll:'All roasters',lTop:'Top 50',lPick:'Picks',pick:'Pick',all:'All',europe:'Europe',asia:'Asia','north-america':'North America',oceania:'Oceania','middle-east':'Middle East',curLocal:'Local',fxLocal:'shop prices in their own currency',orig:'original',trPending:'English intro on its way — showing the shop’s text.',totals:'Total',grams:'Weight',byProcess:'Process',byRoaster:'Roasters',bags:n=>n+(n===1?' bag':' bags'),mixed:'mixed currencies',kAll:'All',kFilter:'Filter',kEspresso:'Espresso',gRoaster:'Roaster',gCountry:'Origin',gNone:'Ungrouped',inStock:'In stock',onlyNew:'New only',hideHad:'Hide ones I had',reset:'Reset',search:'Search name, farm, notes…',
   colName:'Name',colCountry:'Origin',colProcess:'Process',colVariety:'Variety',colNotes:'Notes',colSize:'Size',colPrice:'Price',colP:'per 100 g',
   items:n=>n+(n===1?' coffee':' coffees'),updated:'Updated',ago:{m:n=>n+' min ago',h:n=>n+' h ago',d:n=>n+' d ago'},fP:'Price per 100 g',fAlt:'Altitude',
   badgeNew:'new',badgeHad:'had',badgeSold:'sold out',hadTip:'Same farm or producer in your archive: ',failed:'Not reached this time — showing the previous list',none:'Nothing on sale right now, or the site could not be read',
@@ -252,7 +252,12 @@ function ruler(el,cfg){
 let D=null, HAD=[], R=new Map(), FB=null, FR={}, sig='';
 let region=store.get('bm-region','all'), listV=store.get('bm-list','all'), kind='all', gBy='roaster', fStock=true, fNew=false, fHad=false, sortK='', sortDir=1, openId=null;
 let SHORT=store.get('bm-short',[]);
-const isNew=i=>D&&(Date.parse(D.updated)-Date.parse(i.first_seen))<8*864e5&&i.first_seen>(D.firstRun||'');
+/* "new": the shop's own publish date when it has one (Shopify, Squarespace), otherwise the day this page first saw it –
+   but never on a roaster's first day here, so adding a roaster doesn't flood the list */
+const NEW_DAYS=14;
+const newDate=i=>i.listed||(i.first_seen>(RF[i.roaster]||'')?i.first_seen:null);
+const isNew=i=>{const d=D&&newDate(i);return !!d&&(Date.parse(D.updated)-Date.parse(d))<NEW_DAYS*864e5;};
+const RF={};
 /* "had" = a farm / producer / lot name from the archive appears in this coffee */
 const GENERIC=/^(finca|hacienda|estate|farm|la|el|los|las|de|del|coffee|café|village|station|lot|washing|cafe|granja|santa|san|the)$/i;
 function hadKeys(){const K=new Map();HAD.forEach(b=>{[b.title,b.site,b.producer].forEach(v=>{if(!v||/[㐀-鿿]/.test(v))return;
@@ -312,7 +317,7 @@ function rowHTML(i){
 function detailHTML(i){
   const r=R.get(i.roaster),st=SHORT.includes(i._id);
   const rows=[[t('producer'),i.producer],[t('farm'),i.farm],[t('region'),i.region],[t('alt'),i.alt?i.alt+' m':null],[t('variety'),(i.variety||[]).map(vari).join(', ')],[t('process'),proc(i.process)],
-    [t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${CUR==='local'?money(s[1],i.cur):money(conv(s[1],i.cur,CUR),CUR)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
+    [t('listed'),newDate(i)],[t('sizes'),(i.sizes||[]).map(s=>`${s[0]} g · ${CUR==='local'?money(s[1],i.cur):money(conv(s[1],i.cur,CUR),CUR)}${s[2]?'':' ('+t('badgeSold')+')'}`).join('　')]].filter(x=>x[1]);
   const x=trOf(i), N=notesOf(i);
   const D0=esc(i.desc||'')+((i.desc||'').length>=600?'…':'');
   const cached=MT.get(i.tk+'|'+LANG);
@@ -441,7 +446,7 @@ async function boot(){
   applyStatic();wire();
   const [m,h,tr]=await Promise.all([fetch('data/menu.json',{cache:'no-cache'}).then(r=>r.json()),fetch('data/consumed.json').then(r=>r.json()).catch(()=>[]),fetch('data/tr.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>({}))]);
   D=m;HAD=h;HK=hadKeys();TR=tr||{};
-  const first=D.items.reduce((a,i)=>i.first_seen<a?i.first_seen:a,'9999');D.firstRun=first;
+  D.items.forEach(i=>{if(!RF[i.roaster]||i.first_seen<RF[i.roaster])RF[i.roaster]=i.first_seen;});
   D.roasters.forEach(r=>R.set(r.id,r));
   D.items.forEach((i,n)=>{i._id=i.roaster+'|'+i.url;i._had=had(i);});
   applyStatic();render();
